@@ -191,6 +191,24 @@ Example:
 mbzr cscb
 ```
 
+### recent detections
+
+Retrieves malware samples detected in the last specified number of hours. Usage:
+
+```
+mbzr recent_detections [flags]
+```
+
+Flags:
+
+- `hours <number>`: Number of hours to look back (default: 48, max: 168)
+
+Examples:
+
+```
+mbzr recent_detections -hours 24
+```
+
 ## Other examples
 
 - Get a list of samples tagged with "Emotet", limited to 50 results:
@@ -208,7 +226,7 @@ mbzr cscb
 - Save the output in a JSON file by using the `tail` command to skip the first line:
 ```mbzr cscb | tail -n +2 > cscb.json```
 - Get colored JSON output by piping the output to `jq`, for example:
-```mbzr cscb | tail -n +2 | jq```
+```mbzr recent_detections | tail -n +2 | jq```
 
 ## Contributing
 
