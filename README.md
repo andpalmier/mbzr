@@ -14,7 +14,7 @@ This project was inspired by [@cocaman's malwarebazaar scripts](https://github.c
 
 - **Query samples**: retrieve information about malware samples using various filters: tag, signature, filetype, [ClamAV](https://www.clamav.net) signature, imphash, [tlsh](https://github.com/trendmicro/tlsh), [gimphash](https://github.com/NextronSystems/gimphash), [telfhash](https://github.com/trendmicro/telfhash), icon dhash, YARA rule and Code signing certificate info (Issuer CN, Subject CN and Serial number).
 - **Upload samples**: upload a malware sample or all malware samples in a directory.
-- **Download samples**: download a malware sample by its SHA256 sha256.
+- **Download samples**: download a malware sample by its sha256.
 - **Update sample metadata**: update the metadata of a malware sample, such as tags and comments.
 - **Query recent samples**: retrieve the most recent malware samples.
 - **Query Code Signing Certificate Blocklist (cscb)**: retrieve the content of the MalwareBazaar Code Signing Certificate Blocklist.
@@ -49,7 +49,7 @@ General syntax is: ```mbzr <command> [options]```
 
 Available Commands:
 - `query`: Query MalwareBazaar for information about a sample
-- `download`: Download a sample by its sha256 sha256
+- `download`: Download a sample by its sha256
 - `upload`: Upload a file or directory to MalwareBazaar
 - `comment`: Add a comment to a malware sample
 - `recent_detections`: Get recent malware detections within a specified timeframe
@@ -68,23 +68,23 @@ mbzr query [flags]
 
 Query options:
 
-- `sha256`: Retrieve info about a malware sample by its sha256 (sha1, sha256 or md5).
-- `tag`: Query malware sample associated with a tag.
-- `signature`: Query malware samples associated with a signature.
-- `filetype`: Query malware samples by filetype.
-- `clamav`: Query malware samples by [ClamAV](https://www.clamav.net) signature.
-- `imphash`: Query malware samples by import sha256 (only for PE files).
-- `tlsh`: Query malware samples by [tlsh](https://github.com/trendmicro/tlsh) sha256.
-- `telfhash`: Query malware samples by [telfhash](https://github.com/trendmicro/telfhash) sha256.
-- `dhash`: Query malware samples by dhash Icon.
-- `gimphash`: Query malware samples by [gimphash](https://github.com/NextronSystems/gimphash).
-- `yara`: Query malware samples by YARA rule name.
-- `cert_issuer`: Query code signing certificates by Issuer Common Name.
-- `cert_subject`: Query code signing certificates by Subject Common Name.
-- `cert_serial`: Query code signing certificates by Serial Number.
+- `-sha256`: Retrieve info about a malware sample by its sha256 (sha1, sha256 or md5).
+- `-tag`: Query malware sample associated with a tag.
+- `-signature`: Query malware samples associated with a signature.
+- `-filetype`: Query malware samples by filetype.
+- `-clamav`: Query malware samples by [ClamAV](https://www.clamav.net) signature.
+- `-imphash`: Query malware samples by import sha256 (only for PE files).
+- `-tlsh`: Query malware samples by [tlsh](https://github.com/trendmicro/tlsh) sha256.
+- `-telfhash`: Query malware samples by [telfhash](https://github.com/trendmicro/telfhash) sha256.
+- `-dhash`: Query malware samples by dhash Icon.
+- `-gimphash`: Query malware samples by [gimphash](https://github.com/NextronSystems/gimphash).
+- `-yara`: Query malware samples by YARA rule name.
+- `-cert_issuer`: Query code signing certificates by Issuer Common Name.
+- `-cert_subject`: Query code signing certificates by Subject Common Name.
+- `-cert_serial`: Query code signing certificates by Serial Number.
 
 Optional flags:
-- `limit`: Number of results to return (default: 100, max: 1000)
+- `-limit`: Number of results to return (default: 100, max: 1000)
 
 Examples:
 
@@ -115,10 +115,10 @@ mbzr upload [flags]
 
 Flags:
 
-- `file <file_path>`: File to upload
-- `dir <directory_path>`: Directory containing files to upload
-- `tags <tag1,tag2,...>`: Comma separated list of tags associated with the files to upload
-- `anonymous`: Upload files anonymously (no user association)
+- `-file <file_path>`: File to upload
+- `-dir <directory_path>`: Directory containing files to upload
+- `-tags <tag1,tag2,...>`: Comma separated list of tags associated with the files to upload
+- `-anonymous`: Upload files anonymously (no user association)
 
 Examples:
 
@@ -137,9 +137,9 @@ mbzr update [flags]
 
 Flags:
 
-- `sha256 <sha256_hash>`: SHA256 sha256 of the file to update
-- `key <key>`: Key to update (`add_tag`, `remove_tag`, `urlhaus`, `any_run`, `joe_sandbox`, `malpedia`, `twitter`, `links`, `dropped_by_md5`, `dropped_by_sha256`, `dropped_by_malware`, `dropping_md5`, `dropping_sha256`, `dropping_malware`, `comment`)
-- `value <new_value>`: New value for the specified key
+- `-sha256 <sha256_hash>`: sha256 hash of the file to update
+- `-key <key>`: Key to update (`add_tag`, `remove_tag`, `urlhaus`, `any_run`, `joe_sandbox`, `malpedia`, `twitter`, `links`, `dropped_by_md5`, `dropped_by_sha256`, `dropped_by_malware`, `dropping_md5`, `dropping_sha256`, `dropping_malware`, `comment`)
+- `-value <new_value>`: New value for the specified key
 
 Example:
 
@@ -157,8 +157,8 @@ mbzr comment [flags]
 
 Flags:
 
-- `sha256 <sha256_hash>`: sha256 sha256 of the file to comment on
-- `comment <comment>`: Comment to add to the malware sample
+- `-sha256 <sha256_hash>`: sha256 hash of the file to comment on
+- `-comment <comment>`: Comment to add to the malware sample
 
 Examples:
 
@@ -171,61 +171,64 @@ mbzr comment -sha256 <sha256> -comment "This sample is part of a new campaign."
 Downloads a malware sample by its sha256 hash from MalwareBazaar. Usage:
 
 ```bash
-mbzr download [flags]
+mbzr download -sha256 <file_hash>
 ```
 
 Flag:
 
-- `sha256 <file_hash>`: sha256 hash of the file to download
+- `-sha256 <file_hash>`: sha256 hash of the file to download
 
 ### cscb
 
-Query the Code Signing Certificate Blocklist from MalwareBazaar. Usage:
+Query the Code Signing Certificate Blocklist from MalwareBazaar. Usage and example:
 
 ```bash
-bzr cscb [flags]
-```
-
-Example:
-```
-mbzr cscb
+bzr cscb
 ```
 
 ### recent detections
 
 Retrieves malware samples detected in the last specified number of hours. Usage:
 
-```
-mbzr recent_detections [flags]
+```bash
+mbzr recent_detections -hours <number>
 ```
 
-Flags:
+Flag:
 
-- `hours <number>`: Number of hours to look back (default: 48, max: 168)
+- `-hours <number>`: Number of hours to look back (default: 48, max: 168)
 
 Examples:
 
-```
+```bash
 mbzr recent_detections -hours 24
 ```
 
 ## Other examples
 
 - Get a list of samples tagged with "Emotet", limited to 50 results:
+
 ```mbzr query -tag Emotet -limit 50```
 - Download a sample by its SHA256 hash:
+
 ```mbzr download -sha256 ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652```
 - Upload a sample file:
+
 ```mbzr upload sample.exe```
 - Add a comment to a sample:
+
 ```mbzr comment -sha256 ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652 -comment 'This is a test comment'```
 - Get recent detections from the last 12 hours:
+
 ```mbzr recent_detections -hours 12```
 - Get the Code Signing Certificate Blocklist:
+
 ```mbzr cscb```
 - Save the output in a JSON file by using the `tail` command to skip the first line:
+
 ```mbzr cscb | tail -n +2 > cscb.json```
-- Get colored JSON output by piping the output to `jq`, for example:
+- Get colored JSON output by piping the output to `jq`:
+
 ```mbzr recent_detections | tail -n +2 | jq```
 
 ## Contributing
