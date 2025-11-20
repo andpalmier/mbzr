@@ -1,240 +1,204 @@
-# mbzr
+# mbzr - MalwareBazaar CLI Client
 
-[![License](https://img.shields.io/badge/license-AGPL--v3-blue)](https://www.gnu.org/licenses/agpl-3.0.en.html)
-[![GoDoc Card](https://godoc.org/github.com/andpalmier/mbzr?status.svg)](https://godoc.org/github.com/andpalmier/mbzr)
+A user-friendly command-line tool for interacting with the [MalwareBazaar API](https://bazaar.abuse.ch/api/).
+
 [![Go Report Card](https://goreportcard.com/badge/github.com/andpalmier/mbzr)](https://goreportcard.com/report/github.com/andpalmier/mbzr)
-[![follow on X](https://img.shields.io/twitter/follow/andpalmier?style=social&logo=x)](https://x.com/intent/follow?screen_name=andpalmier)
-
-mbzr is a cli tool to interact with [MalwareBazaar API](https://bazaar.abuse.ch/api). [MalwareBazaar](https://bazaar.abuse.ch) is a project by [abuse.ch](https://abuse.ch) that collects and shares malware samples.
-This tool allows users to query, download, upload and update malware samples and malware sample data.
-
-This project was inspired by [@cocaman's malwarebazaar scripts](https://github.com/cocaman/malware-bazaar/) and the [official MalwareBazaar scripts](https://github.com/abusech/MalwareBazaar).
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 ## Features
 
-- **Query samples**: retrieve information about malware samples using various filters: tag, signature, filetype, [ClamAV](https://www.clamav.net) signature, imphash, [tlsh](https://github.com/trendmicro/tlsh), [gimphash](https://github.com/NextronSystems/gimphash), [telfhash](https://github.com/trendmicro/telfhash), icon dhash, YARA rule and Code signing certificate info (Issuer CN, Subject CN and Serial number).
-- **Upload samples**: upload a malware sample or all malware samples in a directory.
-- **Download samples**: download a malware sample by its sha256.
-- **Update sample metadata**: update the metadata of a malware sample, such as tags and comments.
-- **Query recent samples**: retrieve the most recent malware samples.
-- **Query Code Signing Certificate Blocklist (cscb)**: retrieve the content of the MalwareBazaar Code Signing Certificate Blocklist.
+- ✅ Uses only Go standard libraries
+- 📝 JSON logging and output for easy parsing
+- ⚡️ Built-in rate limiting (10 req/s) to prevent API bans
+- 💅🏻 Clean command-line interface
 
 ## Installation
 
-You can install mbzr using `go`:
+### Using Go
 
 ```bash
 go install github.com/andpalmier/mbzr@latest
-mbzr help
 ```
 
-Or cloning the repo, and manually building it:
+### From Source
 
 ```bash
 git clone https://github.com/andpalmier/mbzr.git
 cd mbzr
+
+# Build with Makefile (recommended - includes version info)
+make build
+
+# Or build manually
 go build -o mbzr main.go
 ```
 
-In order to use mbzr, you need an API key from MalwareBazaar, you can get one for free [here](https://auth.abuse.ch/user/me).
-Remember to set your MalwareBazaar API key as an environment variable:
+### Using Makefile
+
+The project includes a Makefile:
 
 ```bash
-export MBZR_API_KEY=<your_API_key>
+make build          # Build with version information
+make build-release  # Build optimized release binary
+make install        # Install to $GOPATH/bin
+make test           # Run tests
+make test-coverage  # Run tests with coverage report
+make lint           # Run linters
+make clean          # Remove built binaries
+make help           # Show all available commands
+```
+
+### Using Pre-built Binaries
+
+Download the latest release from the [releases page](https://github.com/andpalmier/mbzr/releases).
+
+## 🎬 Quick Start
+
+1. **Set your API key** (get one from [MalwareBazaar](https://bazaar.abuse.ch/api/#account)):
+
+```bash
+export MALWAREBAZAAR_API_KEY="your_api_key_here"
+```
+
+2. **Query samples by tag**:
+
+```bash
+mbzr query -tag Emotet -limit 10
+```
+
+3. **Download a sample**:
+
+```bash
+mbzr download -sha256 ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652
 ```
 
 ## Usage
 
-General syntax is: ```mbzr <command> [options]```
+### Global Flags
 
-Available Commands:
-- `query`: Query MalwareBazaar for information about a sample
-- `download`: Download a sample by its sha256
-- `upload`: Upload a file or directory to MalwareBazaar
-- `comment`: Add a comment to a malware sample
-- `recent_detections`: Get recent malware detections within a specified timeframe
-- `cscb`: Query the Code Signing Certificate Blocklist (CSCB)
-- `update`: Update metadata of a malware sample
-
-Use `mbzr <command> -h` or `--help` for more information about a command.
-
-### query
-
-Query MalwareBazaar for information about malware samples. Usage:
-
-```bash
-mbzr query [flags]
+```
+-v, --verbose      Enable verbose output with structured logging
+-V, --version      Show version information
+-h, --help         Show help message
 ```
 
-Query options:
+### Commands
 
-- `-sha256`: Retrieve info about a malware sample by its sha256 (sha1, sha256 or md5).
-- `-tag`: Query malware sample associated with a tag.
-- `-signature`: Query malware samples associated with a signature.
-- `-filetype`: Query malware samples by filetype.
-- `-clamav`: Query malware samples by [ClamAV](https://www.clamav.net) signature.
-- `-imphash`: Query malware samples by import sha256 (only for PE files).
-- `-tlsh`: Query malware samples by [tlsh](https://github.com/trendmicro/tlsh) sha256.
-- `-telfhash`: Query malware samples by [telfhash](https://github.com/trendmicro/telfhash) sha256.
-- `-dhash`: Query malware samples by dhash Icon.
-- `-gimphash`: Query malware samples by [gimphash](https://github.com/NextronSystems/gimphash).
-- `-yara`: Query malware samples by YARA rule name.
-- `-cert_issuer`: Query code signing certificates by Issuer Common Name.
-- `-cert_subject`: Query code signing certificates by Subject Common Name.
-- `-cert_serial`: Query code signing certificates by Serial Number.
+#### Query Samples
 
-Optional flags:
-- `-limit`: Number of results to return (default: 100, max: 1000)
-
-Examples:
+Search for malware samples using various criteria:
 
 ```bash
-mbzr query -sha256 <file_hash>
-mbzr query -tag TrickBot -limit 10
-mbzr query -signature 'Emotet' -limit 10
-mbzr query -filetype 'exe' -limit 10
-mbzr query -clamav 'Win.Trojan.Emotet-1234567' -limit 10
-mbzr query -imphash <imphash_value> -limit 10
-mbzr query -tlsh <tlsh_value> -limit 10
-mbzr query -telfhash <telfhash_value> -limit 10
-mbzr query -dhash <dhash_value> -limit 10
-mbzr query -gimphash <gimphash_value> -limit 10
-mbzr query -yara 'NETexecutableMicrosoft' -limit 10
-mbzr query -cert_issuer 'Sectigo RSA Code Signing CA' -limit 10
-mbzr query -cert_subject 'Microsoft Corporation' -limit 10
-mbzr query -cert_serial <cert_serial> -limit 10
+# Query by hash (SHA256, SHA1, or MD5)
+mbzr query -hash ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652
+
+# Query by tag
+mbzr query -tag Emotet -limit 50
+
+# Query by signature
+mbzr query -signature "Trojan.Generic"
+
+# Query by file type
+mbzr query -file_type exe
+
+# Query by ClamAV signature
+mbzr query -clamav "Win.Trojan.Agent"
+
+# Query by YARA rule
+mbzr query -yara rule_name
+
+# Query by imphash
+mbzr query -imphash 1234567890abcdef
+
+# Query by telfhash
+mbzr query -telfhash hash_value
+
+# Query by dhash
+mbzr query -dhash hash_value
+
+# Query by gimphash
+mbzr query -gimphash hash_value
+
+# Query by TLSH
+mbzr query -tlsh hash_value
+
+# Query by certificate issuer
+mbzr query -issuer_cn "Example CA"
+
+# Query by certificate subject
+mbzr query -subject_cn "Example Corp"
+
+# Query by serial number
+mbzr query -serial_number 1234567890
 ```
 
-### upload
+#### Download Samples
 
-Uploads a file or all files in a directory to MalwareBazaar. Usage:
+Download malware samples by SHA256 hash:
 
 ```bash
-mbzr upload [flags]
+mbzr download -sha256 <sha256_hash>
 ```
 
-Flags:
+**Security Note:** Downloaded files are saved as `<sha256>.zip` and are password-protected (password: `infected`).
 
-- `-file <file_path>`: File to upload
-- `-dir <directory_path>`: Directory containing files to upload
-- `-tags <tag1,tag2,...>`: Comma separated list of tags associated with the files to upload
-- `-anonymous`: Upload files anonymously (no user association)
+#### Upload Samples
 
-Examples:
+Upload malware samples to MalwareBazaar:
 
 ```bash
-mbzr upload -file sample.exe -tags trojan,banker
-mbzr upload -dir /path/to/malware_samples -anonymous
+# Upload a single file
+mbzr upload -file malware.exe -tags trojan,banker
+
+# Upload all files in a directory
+mbzr upload -dir /path/to/samples -tags malware
+
+# Upload anonymously
+mbzr upload -file sample.exe -anonymous
 ```
 
-### update
+**Note:** Hidden files (starting with `.`) are automatically skipped during directory uploads.
 
-Updates metadata for a malware sample in MalwareBazaar. Usage:
+#### Add Comments
+
+Add comments to existing samples:
 
 ```bash
-mbzr update [flags]
+mbzr comment -sha256 <hash> -comment "This sample is related to campaign X"
 ```
 
-Flags:
+#### Update Sample Metadata
 
-- `-sha256 <sha256_hash>`: sha256 hash of the file to update
-- `-key <key>`: Key to update (`add_tag`, `remove_tag`, `urlhaus`, `any_run`, `joe_sandbox`, `malpedia`, `twitter`, `links`, `dropped_by_md5`, `dropped_by_sha256`, `dropped_by_malware`, `dropping_md5`, `dropping_sha256`, `dropping_malware`, `comment`)
-- `-value <new_value>`: New value for the specified key
-
-Example:
+Update tags or other metadata for a sample:
 
 ```bash
-mbzr update -sha256 <sha256> -key add_tag -value ransomware
+mbzr update -sha256 <hash> -key tags -value "newTag1,newTag2"
 ```
 
-### comment 
+#### Get Recent Detections
 
-Adds a comment to a malware sample in MalwareBazaar. Usage:
-
-```bash
-mbzr comment [flags]
-```
-
-Flags:
-
-- `-sha256 <sha256_hash>`: sha256 hash of the file to comment on
-- `-comment <comment>`: Comment to add to the malware sample
-
-Examples:
+Retrieve recently detected samples:
 
 ```bash
-mbzr comment -sha256 <sha256> -comment "This sample is part of a new campaign."
-```
-
-### download
-
-Downloads a malware sample by its sha256 hash from MalwareBazaar. Usage:
-
-```bash
-mbzr download -sha256 <file_hash>
-```
-
-Flag:
-
-- `-sha256 <file_hash>`: sha256 hash of the file to download
-
-### cscb
-
-Query the Code Signing Certificate Blocklist from MalwareBazaar. Usage and example:
-
-```bash
-bzr cscb
-```
-
-### recent detections
-
-Retrieves malware samples detected in the last specified number of hours. Usage:
-
-```bash
-mbzr recent_detections -hours <number>
-```
-
-Flag:
-
-- `-hours <number>`: Number of hours to look back (default: 48, max: 168)
-
-Examples:
-
-```bash
+# Last 24 hours
 mbzr recent_detections -hours 24
+
+# Last week
+mbzr recent_detections -hours 168
 ```
 
-## Other examples
+#### Query Code Signing Certificate Blocklist (CSCB)
 
-- Get a list of samples tagged with "Emotet", limited to 50 results:
-
-```mbzr query -tag Emotet -limit 50```
-- Download a sample by its SHA256 hash:
-
-```mbzr download -sha256 ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652```
-- Upload a sample file:
-
-```mbzr upload sample.exe```
-- Add a comment to a sample:
-
-```mbzr comment -sha256 ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652 -comment 'This is a test comment'```
-- Get recent detections from the last 12 hours:
-
-```mbzr recent_detections -hours 12```
-- Get the Code Signing Certificate Blocklist:
-
-```mbzr cscb```
-- Save the output in a JSON file by using the `tail` command to skip the first line:
-
-```mbzr cscb | tail -n +2 > cscb.json```
-- Get colored JSON output by piping the output to `jq`:
-
-```mbzr recent_detections | tail -n +2 | jq```
-
-## Contributing
-
-Contributions are welcome! If you have ideas for new features or improvements, feel free to open an issue or submit a pull request.
+```bash
+mbzr cscb
+```
 
 ## License
 
-This project is licensed under the [GNU AGPL V3 license](https://www.gnu.org/licenses/agpl-3.0.en.html).
+This project is licensed under the AGPLv3 License - see the [LICENSE](LICENSE) file for details.
+
+## Thank you to
+
+- [MalwareBazaar](https://bazaar.abuse.ch) for providing the API
+- [abuse.ch](https://abuse.ch) for their work in fighting malware
+- [@cocaman](https://github.com/cocaman) for his [MalwareBazaar scripts](https://github.com/cocaman/malware-bazaar)

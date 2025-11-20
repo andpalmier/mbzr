@@ -1,122 +1,146 @@
 package cmd
 
 import (
-	"errors"
+	"context"
 	"flag"
 	"fmt"
 
 	"github.com/andpalmier/mbzr/api"
 )
 
-// QueryOption query option structure with flag, description and example
-type QueryOption struct {
-	Flag        string
-	Description string
-	Example     string
-}
-
 // executeQuery handles the 'query' subcommand
 func executeQuery(args []string) error {
 	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
+	hash := queryCmd.String("hash", "", "Query by hash (SHA256, SHA1, MD5)")
+	tag := queryCmd.String("tag", "", "Query by tag")
+	signature := queryCmd.String("signature", "", "Query by signature")
+	filetype := queryCmd.String("file_type", "", "Query by file type")
+	clamav := queryCmd.String("clamav", "", "Query by ClamAV signature")
+	imphash := queryCmd.String("imphash", "", "Query by Imphash")
+	tlsh := queryCmd.String("tlsh", "", "Query by TLSH")
+	telfhash := queryCmd.String("telfhash", "", "Query by Telfhash")
+	dhash := queryCmd.String("dhash", "", "Query by Dhash")
+	gimphash := queryCmd.String("gimphash", "", "Query by Gimphash")
+	yara := queryCmd.String("yara", "", "Query by YARA rule")
+	issuerCN := queryCmd.String("issuer_cn", "", "Query by Issuer Common Name")
+	subjectCN := queryCmd.String("subject_cn", "", "Query by Subject Common Name")
+	serialNumber := queryCmd.String("serial_number", "", "Query by Serial Number")
+	limit := queryCmd.Int("limit", 100, "Limit the number of results")
 
-	// define query options
-	queryOptions := []QueryOption{
-		{"hash", "Retrieve info about a malware sample by its hash (sha1, sha256 or md5).", "mbzr query -hash <file_hash>"},
-		{"tag", "Query malware sample associated with a tag.", "mbzr query -tag TrickBot -limit 10"},
-		{"signature", "Query malware samples associated with a signature.", "mbzr query -signature 'Emotet' -limit 10"},
-		{"filetype", "Query malware samples by filetype.", "mbzr query -filetype 'exe' -limit 10"},
-		{"clamav", "Query malware samples by ClamAV signature.", "mbzr query -clamav 'Win.Trojan.Emotet-1234567' -limit 10"},
-		{"imphash", "Query malware samples by imphash.", "mbzr query -imphash <imphash_value> -limit 10"},
-		{"tlsh", "Query malware samples by tlsh hash.", "mbzr query -tlsh <tlsh_value> -limit 10"},
-		{"telfhash", "Query malware samples by telfhash.", "mbzr query -telfhash <telfhash_value> -limit 10"},
-		{"dhash", "Query malware samples by dhash icon.", "mbzr query -dhash <dhash_value> -limit 10"},
-		{"gimphash", "Query malware samples by gimphash.", "mbzr query -gimphash <gimphash_value> -limit 10"},
-		{"yara", "Query malware samples by YARA rule name.", "mbzr query -yara 'NETexecutableMicrosoft' -limit 10"},
-		{"cert_issuer", "Query code signing certificates by Issuer Common Name.", "mbzr query -cert_issuer 'Sectigo RSA Code Signing CA' -limit 10"},
-		{"cert_subject", "Query code signing certificates by Subject Common Name.", "mbzr query -cert_subject 'Microsoft Corporation' -limit 10"},
-		{"cert_serial", "Query code signing certificates by Serial Number.", "mbzr query -cert_serial <cert_serial> -limit 10"},
+	if len(args) < 1 {
+		printError("expected query arguments")
+		queryCmd.Usage()
+		return fmt.Errorf("expected query arguments")
 	}
 
-	// define flags
-	queryParams := make(map[string]*string)
-	for _, option := range queryOptions {
-		queryParams[option.Flag] = queryCmd.String(option.Flag, "", option.Description)
-	}
-	limit := queryCmd.Int("limit", 100, "Number of results to return (default: 100, max: 1000)")
-
-	// override help message
-	queryCmd.Usage = func() {
-		fmt.Printf("Usage:\n  mbzr query [flags]\n\n")
-		fmt.Println("Query MalwareBazaar for information about malware samples.")
-		fmt.Println("\nQuery options:")
-		for _, option := range queryOptions {
-			fmt.Printf("  -%-15s %s\n", option.Flag, option.Description)
-		}
-		fmt.Println("\nOptional flags:")
-		fmt.Println("  -limit        Number of results to return (default: 100, max: 1000)")
-
-		fmt.Println("\nExamples:")
-		for _, option := range queryOptions {
-			fmt.Printf("  %s\n", option.Example)
-		}
+	if err := queryCmd.Parse(args); err != nil {
+		return err
 	}
 
-	queryCmd.Parse(args)
+	// Map flags to their values
+	queryParams := map[string]*string{
+		"hash":          hash,
+		"tag":           tag,
+		"signature":     signature,
+		"file_type":     filetype,
+		"clamav":        clamav,
+		"imphash":       imphash,
+		"tlsh":          tlsh,
+		"telfhash":      telfhash,
+		"dhash":         dhash,
+		"gimphash":      gimphash,
+		"yara":          yara,
+		"issuer_cn":     issuerCN,
+		"subject_cn":    subjectCN,
+		"serial_number": serialNumber,
+	}
 
-	// only one query allowed
 	var selectedQuery string
-	for key, value := range queryParams {
-		if *value != "" {
-			if selectedQuery != "" {
-				fmt.Println("Error: please specify only one query parameter at a time")
-				queryCmd.Usage()
-				return fmt.Errorf("multiple query parameters specified")
-			}
+	for key, val := range queryParams {
+		if *val != "" {
 			selectedQuery = key
+			break
 		}
 	}
 
 	if selectedQuery == "" {
-		fmt.Println("Error: please specify one query flag")
-		queryCmd.Usage()
-		return fmt.Errorf("no query parameter specified")
+		return fmt.Errorf("please provide a query parameter (e.g., -hash, -tag)")
 	}
 
-	if *limit < 1 || *limit > 1000 {
-		fmt.Println("Error: limit must be between 1 and 1000\n")
-		queryCmd.Usage()
-		fmt.Println()
-		return errors.New("limit must be between 1 and 1000")
+	client, err := getAPIClient()
+	if err != nil {
+		// API key is optional for some queries, so we create a client without it
+		client = api.NewClient("")
 	}
 
-	// Map query types with the corresponding API function
-	queryHandlers := map[string]func(string, int, string) error{
-		"hash":         api.QueryByHash,
-		"tag":          api.QueryByTag,
-		"signature":    api.QueryBySignature,
-		"filetype":     api.QueryByFileType,
-		"clamav":       api.QueryByClamAV,
-		"imphash":      api.QueryByImpHash,
-		"tlsh":         api.QueryByTLSH,
-		"telfhash":     api.QueryByTelfHash,
-		"dhash":        api.QueryByDHash,
-		"gimphash":     api.QueryByGimphash,
-		"yara":         api.QueryByYara,
-		"cert_issuer":  api.QueryByIssuerCN,
-		"cert_subject": api.QueryBySubjectCN,
-		"cert_serial":  api.QueryBySerialNumber,
+	// Define handlers using the client methods
+	queryHandlers := map[string]func(context.Context, *api.Client, string, int) ([]api.MalwareSample, error){
+		"hash": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByHash(ctx, val, lim)
+		},
+		"tag": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByTag(ctx, val, lim)
+		},
+		"signature": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryBySignature(ctx, val, lim)
+		},
+		"file_type": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByFileType(ctx, val, lim)
+		},
+		"clamav": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByClamAV(ctx, val, lim)
+		},
+		"imphash": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByImpHash(ctx, val, lim)
+		},
+		"tlsh": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByTLSH(ctx, val, lim)
+		},
+		"telfhash": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByTelfHash(ctx, val, lim)
+		},
+		"dhash": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByDHash(ctx, val, lim)
+		},
+		"gimphash": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByGimphash(ctx, val, lim)
+		},
+		"yara": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByYara(ctx, val, lim)
+		},
+		"issuer_cn": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryByIssuerCN(ctx, val, lim)
+		},
+		"subject_cn": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryBySubjectCN(ctx, val, lim)
+		},
+		"serial_number": func(ctx context.Context, c *api.Client, val string, lim int) ([]api.MalwareSample, error) {
+			return c.QueryBySerialNumber(ctx, val, lim)
+		},
 	}
 
-	// Execute the appropriate query handler
 	handler, exists := queryHandlers[selectedQuery]
 	if !exists {
+		printError(fmt.Sprintf("no handler for query type %s", selectedQuery))
 		return fmt.Errorf("no handler for query type %s", selectedQuery)
 	}
 
-	// for "hash" limit is not applicable
+	ctx, cancel := getContext()
+	defer cancel()
+
+	var results []api.MalwareSample
 	if selectedQuery == "hash" {
-		return handler(*queryParams[selectedQuery], 0, apiKey)
+		// Hash query usually returns one result, limit might not apply or is 1
+		results, err = handler(ctx, client, *queryParams[selectedQuery], 0)
+	} else {
+		results, err = handler(ctx, client, *queryParams[selectedQuery], *limit)
 	}
 
-	return handler(*queryParams[selectedQuery], *limit, apiKey)
+	if err != nil {
+		printDetailedError(err, fmt.Sprintf("Failed to query by %s", selectedQuery))
+		return err
+	}
+
+	printJSON(results)
+	return nil
 }

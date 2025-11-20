@@ -1,37 +1,42 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 )
 
 // AddComment adds a comment to a sample identified by its hash
-func AddComment(sha256, comment, apiKey string) error {
+func (c *Client) AddComment(ctx context.Context, sha256, comment string) error {
+	// Validate SHA256 format
+	if err := ValidateSHA256(sha256); err != nil {
+		return fmt.Errorf("invalid hash: %w", err)
+	}
+
 	data := map[string]string{
 		"query":       "add_comment",
 		"sha256_hash": sha256,
 		"comment":     comment,
 	}
 
-	response, err := MakeRequest(data, nil, apiKey)
+	response, err := c.MakeRequest(ctx, data, nil)
 	if err != nil {
-		return fmt.Errorf("Error adding comment to sample %s: %v", sha256, err)
+		return fmt.Errorf("error adding comment to sample %s: %w", sha256, err)
 	}
 
 	// Parse the response
 	var result map[string]interface{}
 	if err := json.Unmarshal([]byte(response), &result); err != nil {
-		return fmt.Errorf("Error parsing response commenting sample %s: %v", sha256, err)
+		return fmt.Errorf("error parsing response: %w", err)
 	}
 
 	// check for query_status
 	if status, ok := result["query_status"].(string); ok {
 		if status == "success" {
-			fmt.Printf("Successfully added comment to sample %s: '%s'\n", sha256, comment)
 			return nil
 		}
-		return fmt.Errorf("Failed to add comment to sample %s: %s", sha256, status)
+		return fmt.Errorf("failed to add comment: %s", status)
 	}
 
-	return fmt.Errorf("Unexpected response format commenting sample %s", sha256)
+	return fmt.Errorf("unexpected response format")
 }

@@ -3,20 +3,42 @@ package cmd
 import (
 	"flag"
 	"fmt"
-
-	"github.com/andpalmier/mbzr/api"
 )
 
-// executeCSCB handles the cscb command
+// executeCSCB handles the 'cscb' subcommand
 func executeCSCB(args []string) error {
 	cscbCmd := flag.NewFlagSet("cscb", flag.ExitOnError)
+
 	cscbCmd.Usage = func() {
-		fmt.Println("Usage:\n  mbzr cscb [flags]\n")
-		fmt.Println("Query the Code Signing Certificate Blocklist from MalwareBazaar.")
+		printUsageHeader("cscb", "Queries the Code Signing Certificate Blocklist (CSCB) from MalwareBazaar.")
 		fmt.Println("\nExample:")
 		fmt.Println("  mbzr cscb")
 	}
-	cscbCmd.Parse(args)
 
-	return api.GetCSCB(apiKey)
+	if err := cscbCmd.Parse(args); err != nil {
+		return err
+	}
+
+	client, err := getAPIClient()
+	if err != nil {
+		printDetailedError(err, "Failed to create API client")
+		return err
+	}
+
+	ctx, cancel := getContext()
+	defer cancel()
+
+	results, err := client.GetCSCB(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(results) == 0 {
+		fmt.Println("No CSCB entries found.")
+		return nil
+	}
+
+	printJSON(results)
+
+	return nil
 }

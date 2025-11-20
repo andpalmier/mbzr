@@ -1,24 +1,30 @@
 package api
 
-import "fmt"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
 
 // GetCSCB retrieves the MalwareBazaar Code Signing Certificate Blocklist
-func GetCSCB(apiKey string) error {
+func (c *Client) GetCSCB(ctx context.Context) ([]CSCBEntry, error) {
 	data := map[string]string{
 		"query": "get_cscb",
 	}
 
-	response, err := MakeRequest(data, nil, apiKey)
+	response, err := c.MakeRequest(ctx, data, nil)
 	if err != nil {
-		return fmt.Errorf("Error retrieving Code Signing Certificate Blocklist: %v", err)
+		return nil, fmt.Errorf("error retrieving Code Signing Certificate Blocklist: %w", err)
 	}
 
-	fmt.Println("Code Signing Certificate Blocklist:")
-	dataJSON, err := PrintData(response)
-	if err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		fmt.Println(dataJSON)
+	var resp CSCBResponse
+	if err := json.Unmarshal([]byte(response), &resp); err != nil {
+		return nil, fmt.Errorf("error parsing CSCB response: %w", err)
 	}
-	return nil
+
+	if resp.QueryStatus != "ok" {
+		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	}
+
+	return resp.Data, nil
 }

@@ -1,73 +1,65 @@
 package api
 
 import (
-	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 )
 
-// UploadDirectory uploads all files from the specified directory
-func UploadDirectory(dirPath, tags string, anonymous bool, apiKey string) error {
-	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-		return fmt.Errorf("Error: directory %s does not exist", dirPath)
-	}
-
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("Error accesssing path %s: %v", path, err)
-		}
-
-		// skip subdirectories
-		if !info.IsDir() {
-			fmt.Printf("Uploading file %s\n", path)
-			if err := UploadFile(path, tags, anonymous, apiKey); err != nil {
-				fmt.Printf("Error uploading file %s: %v\n", path, err)
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("Error accessing directory %s: %v", dirPath, err)
-	}
-	return nil
-}
-
-// UploadFile uploads a single file
-func UploadFile(filePath, tags string, anonymous bool, apiKey string) error {
+// UploadFile uploads a file to MalwareBazaar
+func (c *Client) UploadFile(ctx context.Context, filePath string, anonymous bool, tags []string, deliveryMethod string, contextInfo map[string]string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("Error: opening file failed: %v", err)
+		return "", fmt.Errorf("error opening file: %w", err)
 	}
 	defer file.Close()
 
-	// prepare JSON data
-	data := map[string]interface{}{
-		"tags":      strings.Split(tags, ","),
-		"anonymous": anonymous,
-	}
-
-	// prepare multipart form data
 	files := map[string]io.Reader{
-		"file":      file,
-		"json_data": bytes.NewReader(mustMarshalJSON(data)),
+		"file": file,
 	}
 
-	// send request
-	response, err := MakeRequest(nil, files, apiKey)
-	if err != nil {
-		return fmt.Errorf("Error uploading file %s: %v", filePath, err)
+	// Prepare other form fields
+	data := map[string]string{
+		"anonymous": "0",
+	}
+	if anonymous {
+		data["anonymous"] = "1"
 	}
 
-	fmt.Printf("File uploaded successfully: %s\n", filePath)
-	dataJSON, err := PrintData(response)
-	if err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		fmt.Println(dataJSON)
+	if len(tags) > 0 {
+		data["tags"] = strings.Join(tags, ",")
 	}
-	return nil
+
+	if deliveryMethod != "" {
+		data["delivery_method"] = deliveryMethod
+	}
+
+	// Add context info if provided
+	for k, v := range contextInfo {
+		data[k] = v
+	}
+
+	response, err := c.MakeRequest(ctx, data, files)
+	if err != nil {
+		return "", fmt.Errorf("error uploading file: %w", err)
+	}
+
+	// Parse the response to check status
+	resp, err := ParseAPIResponse([]byte(response))
+	if err != nil {
+		return "", err
+	}
+
+	// If there's data, try to pretty print it
+	if len(resp.Data) > 0 {
+		dataJSON, err := json.MarshalIndent(resp.Data, "", "    ")
+		if err == nil {
+			return fmt.Sprintf("Query Status: %s\nData:\n%s", resp.QueryStatus, string(dataJSON)), nil
+		}
+	}
+
+	return fmt.Sprintf("Query Status: %s", resp.QueryStatus), nil
 }

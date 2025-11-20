@@ -1,12 +1,13 @@
 package main
 
 import (
+	"os"
+
 	"github.com/andpalmier/mbzr/cmd"
-	"log"
 )
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		log.Fatalf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }

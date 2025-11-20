@@ -1,25 +1,30 @@
 package api
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 // GetRecentDetections retrieves recent detections from the API
-func GetRecentDetections(hours int, apiKey string) error {
+func (c *Client) GetRecentDetections(ctx context.Context, hours int) ([]MalwareSample, error) {
 	data := map[string]string{
 		"query": "recent_detections",
 		"hours": fmt.Sprintf("%d", hours),
 	}
 
-	response, err := MakeRequest(data, nil, apiKey)
+	response, err := c.MakeRequest(ctx, data, nil)
 	if err != nil {
-		return fmt.Errorf("Error retrieving recent detections: %v", err)
+		return nil, fmt.Errorf("error retrieving recent detections: %w", err)
 	}
 
-	fmt.Println("Recent detections:")
-	dataJSON, err := PrintData(response)
+	resp, err := ParseAPIResponse([]byte(response))
 	if err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		fmt.Println(dataJSON)
+		return nil, err
 	}
-	return nil
+
+	if resp.QueryStatus != "ok" {
+		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	}
+
+	return resp.Data, nil
 }

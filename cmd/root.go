@@ -5,47 +5,49 @@ import (
 	"os"
 )
 
-var apiKey string
-
+// Execute runs the root command and handles subcommands
 func Execute() error {
-	// check for API key in env variables
-	apiKey = os.Getenv("MBZR_API_KEY")
-	if apiKey == "" {
-		return fmt.Errorf("Error: please set MBZR_API_KEY environment variable")
+	// Parse global flags
+	args := os.Args[1:]
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "-v", "--verbose":
+			SetVerbose(true)
+			// Remove flag from args
+			args = append(args[:i], args[i+1:]...)
+			i--
+		case "-V", "--version":
+			return executeVersion([]string{})
+		}
 	}
 
 	// handle root help
-	if len(os.Args) < 2 || os.Args[1] == "-h" || os.Args[1] == "--help" || os.Args[1] == "help" {
+	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" || args[0] == "help" {
 		printRootHelp()
 		fmt.Println()
 		return nil
 	}
 
-	// if no subcommand is provided
-	if len(os.Args) < 2 {
-		printRootHelp()
-		fmt.Println()
-		return fmt.Errorf("subcommand not specified")
-	}
-
 	// handle subcommands
-	switch os.Args[1] {
+	switch args[0] {
+	case "version":
+		return executeVersion(args[1:])
 	case "update":
-		return executeUpdate(os.Args[2:])
+		return executeUpdate(args[1:])
 	case "upload":
-		return executeUpload(os.Args[2:])
+		return executeUpload(args[1:])
 	case "download":
-		return executeDownload(os.Args[2:])
+		return executeDownload(args[1:])
 	case "cscb":
-		return executeCSCB(os.Args[2:])
+		return executeCSCB(args[1:])
 	case "query":
-		return executeQuery(os.Args[2:])
+		return executeQuery(args[1:])
 	case "recent_detections":
-		return executeRecentDetections(os.Args[2:])
+		return executeRecentDetections(args[1:])
 	case "comment":
-		return executeComment(os.Args[2:])
+		return executeComment(args[1:])
 	default:
-		fmt.Printf("Error: unknown subcommand '%s'\n\n", os.Args[1])
+		printError(fmt.Sprintf("unknown subcommand '%s'", args[0]))
 		printRootHelp()
 		fmt.Println()
 		os.Exit(1)

@@ -1,9 +1,18 @@
 package api
 
-import "fmt"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
 
 // UpdateSample updates existing entry in MalwareBazaar
-func UpdateSample(sha256, key, value, apiKey string) error {
+func (c *Client) UpdateSample(ctx context.Context, sha256, key, value string) error {
+	// Validate SHA256 format
+	if err := ValidateSHA256(sha256); err != nil {
+		return fmt.Errorf("invalid hash: %w", err)
+	}
+
 	data := map[string]string{
 		"query":       "update",
 		"sha256_hash": sha256,
@@ -11,12 +20,24 @@ func UpdateSample(sha256, key, value, apiKey string) error {
 		"value":       value,
 	}
 
-	// use MakeRequest to send the update request
-	response, err := MakeRequest(data, nil, apiKey)
+	response, err := c.MakeRequest(ctx, data, nil)
 	if err != nil {
-		return fmt.Errorf("Error updating sample %s: %v", sha256, err)
+		return fmt.Errorf("error updating sample %s: %w", sha256, err)
 	}
 
-	fmt.Printf("Updated sample %s\n%s\n", sha256, response)
-	return nil
+	// Parse the response to check status
+	var result map[string]interface{}
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		return fmt.Errorf("error parsing response: %w", err)
+	}
+
+	// Check for query_status
+	if status, ok := result["query_status"].(string); ok {
+		if status == "ok" || status == "success" {
+			return nil
+		}
+		return fmt.Errorf("failed to update sample: %s", status)
+	}
+
+	return fmt.Errorf("unexpected response format")
 }
