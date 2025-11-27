@@ -30,6 +30,7 @@ func printRootHelp() {
 	fmt.Println("  comment            Add a comment to a malware sample")
 	fmt.Println("  update             Update metadata of a malware sample")
 	fmt.Println("  recent_detections  Get recent malware detections")
+	fmt.Println("  latest             Get latest malware samples")
 	fmt.Println("  cscb               Query the Code Signing Certificate Blocklist")
 	fmt.Println("  version            Show version information")
 	fmt.Println()

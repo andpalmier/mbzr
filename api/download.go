@@ -61,8 +61,10 @@ func (c *Client) DownloadSample(ctx context.Context, sha256 string) error {
 		return nil
 	}
 
-	// If not a ZIP, read the rest to parse error
-	rest, err := io.ReadAll(body)
+	// If not a ZIP, read the rest to parse error (limit to 1MB)
+	const maxErrorSize = 1024 * 1024 // 1MB
+	limitedReader := io.LimitReader(body, maxErrorSize)
+	rest, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return fmt.Errorf("error reading error response: %w", err)
 	}

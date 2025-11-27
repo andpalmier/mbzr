@@ -14,6 +14,21 @@ A user-friendly command-line tool for interacting with the [MalwareBazaar API](h
 
 ## Installation
 
+### Using Homebrew (macOS/Linux)
+
+```bash
+brew tap andpalmier/tap
+brew install mbzr
+```
+
+### Using Container Image
+
+You can pull the pre-built image from GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/andpalmier/mbzr:latest
+```
+
 ### Using Go
 
 ```bash
@@ -52,7 +67,52 @@ make help           # Show all available commands
 
 Download the latest release from the [releases page](https://github.com/andpalmier/mbzr/releases).
 
-## 🎬 Quick Start
+### Using Containers
+
+You can run `mbzr` using **Docker**, **Podman**, or Apple's **`container`** tool without installing Go. The commands are compatible across these runtimes.
+
+1.  **Build the image**:
+
+    ```bash
+    # Docker
+    docker build -t mbzr .
+
+    # Podman
+    podman build -t mbzr .
+
+    # Apple container
+    container build -t mbzr .
+    ```
+
+2.  **Run the container**:
+
+    ```bash
+    # Replace 'docker' with 'podman' or 'container' as needed
+    docker run --rm mbzr --help
+    ```
+
+    To persist configuration or download files, mount a volume:
+
+    ```bash
+    docker run --rm -v $(pwd):/data mbzr download -sha256 <hash>
+    ```
+
+    Pass your API key as an environment variable:
+
+    ```bash
+    docker run --rm -e MALWAREBAZAAR_API_KEY="your_key" mbzr query -tag Emotet
+    ```
+
+    Or use an environment file (e.g., `.env`):
+
+    ```bash
+    # .env file content:
+    # MALWAREBAZAAR_API_KEY=your_key
+
+    docker run --rm --env-file .env mbzr query -tag Emotet
+    ```
+
+## Quick Start
 
 1. **Set your API key** (get one from [MalwareBazaar](https://bazaar.abuse.ch/api/#account)):
 
@@ -185,6 +245,18 @@ mbzr recent_detections -hours 24
 
 # Last week
 mbzr recent_detections -hours 168
+```
+
+#### Get Latest Samples
+
+Retrieve the latest malware samples added to MalwareBazaar:
+
+```bash
+# Last 60 minutes (default)
+mbzr latest
+
+# Last 100 samples
+mbzr latest -selector 100
 ```
 
 #### Query Code Signing Certificate Blocklist (CSCB)

@@ -17,22 +17,40 @@ const defaultAPIURL = "https://mb-api.abuse.ch/api/v1/"
 
 // RateLimiter implements a simple token bucket rate limiter
 type RateLimiter struct {
-	tokens    chan struct{}
-	rate      time.Duration
-	lastToken time.Time
+	tokens chan struct{}
+	ticker *time.Ticker
+	stop   chan struct{}
 }
 
 // NewRateLimiter creates a new rate limiter
 func NewRateLimiter(requestsPerSecond int) *RateLimiter {
 	rl := &RateLimiter{
-		tokens:    make(chan struct{}, requestsPerSecond),
-		rate:      time.Second / time.Duration(requestsPerSecond),
-		lastToken: time.Now(),
+		tokens: make(chan struct{}, requestsPerSecond),
+		ticker: time.NewTicker(time.Second / time.Duration(requestsPerSecond)),
+		stop:   make(chan struct{}),
 	}
+
 	// Fill initial tokens
 	for i := 0; i < requestsPerSecond; i++ {
 		rl.tokens <- struct{}{}
 	}
+
+	// Start refill loop
+	go func() {
+		for {
+			select {
+			case <-rl.ticker.C:
+				select {
+				case rl.tokens <- struct{}{}:
+				default:
+				}
+			case <-rl.stop:
+				rl.ticker.Stop()
+				return
+			}
+		}
+	}()
+
 	return rl
 }
 
@@ -40,18 +58,15 @@ func NewRateLimiter(requestsPerSecond int) *RateLimiter {
 func (rl *RateLimiter) Wait(ctx context.Context) error {
 	select {
 	case <-rl.tokens:
-		// Token acquired, refill after rate duration
-		go func() {
-			time.Sleep(rl.rate)
-			select {
-			case rl.tokens <- struct{}{}:
-			default:
-			}
-		}()
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// Stop stops the rate limiter
+func (rl *RateLimiter) Stop() {
+	close(rl.stop)
 }
 
 // Client interacts with the MalwareBazaar API

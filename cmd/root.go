@@ -46,6 +46,8 @@ func Execute() error {
 		return executeRecentDetections(args[1:])
 	case "comment":
 		return executeComment(args[1:])
+	case "latest":
+		return executeLatest(args[1:])
 	default:
 		printError(fmt.Sprintf("unknown subcommand '%s'", args[0]))
 		printRootHelp()
