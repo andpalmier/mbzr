@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 version: 2
 
 project_name: mbzr
@@ -7,148 +8,117 @@ before:
     - go mod tidy
 
 builds:
-  - env:
+  - id: mbzr
+    main: .
+    binary: mbzr
+    env:
       - CGO_ENABLED=0
     goos:
       - linux
-      - windows
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/andpalmier/mbzr/cmd.Version={{.Version}} -X github.com/andpalmier/mbzr/cmd.Commit={{.Commit}} -X github.com/andpalmier/mbzr/cmd.BuildDate={{.Date}}
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
 
 archives:
-  - format: tar.gz
-    # this name template makes the OS and Arch compatible with the results of uname.
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- title .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else if eq .Arch "386" }}i386
-      {{- else }}{{ .Arch }}{{ end }}
-      {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
+  - id: default
+    formats:
+      - tar.gz
     format_overrides:
-    - goos: windows
-      format: zip
+      - goos: windows
+        formats:
+          - zip
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
 
 checksum:
-  name_template: 'checksums.txt'
-
-snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: "checksums.txt"
 
 changelog:
   sort: asc
   filters:
     exclude:
-      - '^docs:'
-      - '^test:'
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
 
 brews:
-  - repository:
+  - name: mbzr
+    repository:
       owner: andpalmier
       name: homebrew-tap
-    
-    # Template for the url which is determined by the given Token (github_token or gitlab_token)
-    url_template: "https://github.com/andpalmier/mbzr/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
-
-    # Git author used to commit to the repository.
-    commit_author:
-      name: goreleaserbot
-      email: bot@goreleaser.com
-
-    # The project name and description for the formula.
-    name: mbzr
-    description: "MalwareBazaar CLI Client"
-    homepage: "https://github.com/andpalmier/mbzr"
-
-    # License
-    license: "AGPL-3.0"
-
-    # Folder inside the repository to put the formula.
     directory: Formula
-
-    # Dependencies
-    dependencies:
-      - name: git
-    
-    # Custom install
-    install: |
-      bin.install "mbzr"
-      
-      # Install bash completion
-      output = Utils.safe_popen_read("#{bin}/mbzr", "completion", "bash")
-      (bash_completion/"mbzr").write output
-
-      # Install zsh completion
-      output = Utils.safe_popen_read("#{bin}/mbzr", "completion", "zsh")
-      (zsh_completion/"_mbzr").write output
-
-      # Install fish completion
-      output = Utils.safe_popen_read("#{bin}/mbzr", "completion", "fish")
-      (fish_completion/"mbzr.fish").write output
+    homepage: "https://github.com/andpalmier/mbzr"
+    description: "Forensic tool for analyzing git repository history"
+    license: "AGPL-3.0"
+    test: |
+      system "#{bin}/mbzr --version"
 
 dockers:
   - image_templates:
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-amd64"
-    dockerfile: Dockerfile
+      - "ghcr.io/andpalmier/mbzr:{{ .Version }}-amd64"
+      - "ghcr.io/andpalmier/mbzr:latest-amd64"
     use: buildx
     goos: linux
     goarch: amd64
     extra_files:
       - go.mod
-      - Makefile
+      - go.sum
       - main.go
-      - api/
-      - cmd/
+      - internal
+      - cmd
+    dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.name={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Git repository forensic expander"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/andpalmier/mbzr"
+      - "--label=org.opencontainers.image.licenses=AGPL-3.0"
 
   - image_templates:
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-arm64"
-    dockerfile: Dockerfile
+      - "ghcr.io/andpalmier/mbzr:{{ .Version }}-arm64"
+      - "ghcr.io/andpalmier/mbzr:latest-arm64"
     use: buildx
     goos: linux
     goarch: arm64
     extra_files:
       - go.mod
-      - Makefile
+      - go.sum
       - main.go
-      - api/
-      - cmd/
+      - internal
+      - cmd
+    dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.name={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.description=Git repository forensic expander"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.source=https://github.com/andpalmier/mbzr"
+      - "--label=org.opencontainers.image.licenses=AGPL-3.0"
 
 docker_manifests:
-  - name_template: "ghcr.io/andpalmier/mbzr:{{ .Tag }}"
+  - name_template: "ghcr.io/andpalmier/mbzr:{{ .Version }}"
     image_templates:
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-amd64"
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-arm64"
-  
+      - "ghcr.io/andpalmier/mbzr:{{ .Version }}-amd64"
+      - "ghcr.io/andpalmier/mbzr:{{ .Version }}-arm64"
   - name_template: "ghcr.io/andpalmier/mbzr:latest"
     image_templates:
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-amd64"
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-arm64"
-  
-  - name_template: "ghcr.io/andpalmier/mbzr:v{{ .Major }}"
-    image_templates:
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-amd64"
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-arm64"
+      - "ghcr.io/andpalmier/mbzr:latest-amd64"
+      - "ghcr.io/andpalmier/mbzr:latest-arm64"
 
-  - name_template: "ghcr.io/andpalmier/mbzr:v{{ .Major }}.{{ .Minor }}"
-    image_templates:
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-amd64"
-      - "ghcr.io/andpalmier/mbzr:{{ .Tag }}-arm64"
+release:
+  github:
+    owner: andpalmier
+    name: mbzr
+  draft: false
+  prerelease: auto

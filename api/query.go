@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 )
 
@@ -113,4 +114,80 @@ func (c *Client) QueryBySubjectCN(ctx context.Context, subjectCN string, limit i
 // QueryBySerialNumber retrieves samples by Serial Number
 func (c *Client) QueryBySerialNumber(ctx context.Context, serialNumber string, limit int) ([]MalwareSample, error) {
 	return c.queryAPI(ctx, "get_certificate", "serial_number", serialNumber, limit)
+}
+
+// QueryLatest retrieves the latest malware samples added to MalwareBazaar
+// selector can be "time" (last 60 minutes) or "100" (last 100 samples)
+func (c *Client) QueryLatest(ctx context.Context, selector string) ([]MalwareSample, error) {
+	if selector != "time" && selector != "100" {
+		return nil, fmt.Errorf("invalid selector: must be 'time' or '100'")
+	}
+
+	data := map[string]string{
+		"query":    "get_recent",
+		"selector": selector,
+	}
+
+	response, err := c.MakeRequest(ctx, data, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving latest samples: %w", err)
+	}
+
+	resp, err := ParseAPIResponse([]byte(response))
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.QueryStatus != "ok" {
+		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	}
+
+	return resp.Data, nil
+}
+
+// GetRecentDetections retrieves recent detections from the API
+func (c *Client) GetRecentDetections(ctx context.Context, hours int) ([]MalwareSample, error) {
+	data := map[string]string{
+		"query": "recent_detections",
+		"hours": fmt.Sprintf("%d", hours),
+	}
+
+	response, err := c.MakeRequest(ctx, data, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving recent detections: %w", err)
+	}
+
+	resp, err := ParseAPIResponse([]byte(response))
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.QueryStatus != "ok" {
+		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	}
+
+	return resp.Data, nil
+}
+
+// GetCSCB retrieves the MalwareBazaar Code Signing Certificate Blocklist
+func (c *Client) GetCSCB(ctx context.Context) ([]CSCBEntry, error) {
+	data := map[string]string{
+		"query": "get_cscb",
+	}
+
+	response, err := c.MakeRequest(ctx, data, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving Code Signing Certificate Blocklist: %w", err)
+	}
+
+	var resp CSCBResponse
+	if err := json.Unmarshal([]byte(response), &resp); err != nil {
+		return nil, fmt.Errorf("error parsing CSCB response: %w", err)
+	}
+
+	if resp.QueryStatus != "ok" {
+		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	}
+
+	return resp.Data, nil
 }

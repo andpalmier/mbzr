@@ -53,7 +53,8 @@ func printRootHelp() {
 	fmt.Println("  mbzr recent_detections -hours 24")
 	fmt.Println()
 	fmt.Println("Environment Variables:")
-	fmt.Println("  MALWAREBAZAAR_API_KEY  Your MalwareBazaar API key (required for most commands)")
+	fmt.Println("  ABUSECH_API_KEY    Your abuse.ch API key (required)")
+	fmt.Println("                     Get one at https://auth.abuse.ch/")
 	fmt.Println()
 	fmt.Println("For more information about a command:")
 	fmt.Println("  mbzr [command] --help")
@@ -62,9 +63,9 @@ func printRootHelp() {
 // getAPIClient creates and returns an API client with the API key from environment
 // Returns an error if the API key is not set
 func getAPIClient() (*api.Client, error) {
-	apiKey := os.Getenv("MALWAREBAZAAR_API_KEY")
+	apiKey := os.Getenv("ABUSECH_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("MALWAREBAZAAR_API_KEY environment variable is required")
+		return nil, fmt.Errorf("ABUSECH_API_KEY environment variable is required. Get one at https://auth.abuse.ch/")
 	}
 
 	if verbose {
@@ -108,8 +109,8 @@ func printDetailedError(err error, context string) {
 	// Suggest solutions for common errors
 	errStr := err.Error()
 	suggestions := map[string]string{
-		"Unauthorized":       "Set MALWAREBAZAAR_API_KEY environment variable\n          export MALWAREBAZAAR_API_KEY=your_key_here",
-		"API key":            "Set MALWAREBAZAAR_API_KEY environment variable\n          export MALWAREBAZAAR_API_KEY=your_key_here",
+		"Unauthorized":       "Set ABUSECH_API_KEY environment variable\n          export ABUSECH_API_KEY=your_key_here",
+		"API key":            "Set ABUSECH_API_KEY environment variable\n          export ABUSECH_API_KEY=your_key_here",
 		"timeout":            "The request timed out. Try again or check your network connection",
 		"deadline exceeded":  "The request timed out. Try again or check your network connection",
 		"connection refused": "Cannot reach API. Check your internet connection",
@@ -141,7 +142,6 @@ func printSuccess(message string) {
 func printJSON(data interface{}) {
 	b, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
-		// Fallback to standard JSON if coloring fails
 		fmt.Printf("%+v\n", data)
 		return
 	}

@@ -12,7 +12,7 @@ var (
 )
 
 // executeVersion handles the 'version' subcommand
-func executeVersion(args []string) error {
+func executeVersion(_ []string) error {
 	fmt.Printf("mbzr version %s\n", Version)
 	fmt.Printf("  commit: %s\n", Commit)
 	fmt.Printf("  built: %s\n", BuildDate)

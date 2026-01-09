@@ -70,6 +70,8 @@ func executeQuery(args []string) error {
 	client, err := getAPIClient()
 	if err != nil {
 		// API key is optional for some queries, so we create a client without it
+		// But if we fail to get it from environment, we still need a client
+		// Some queries MIGHT require API key, but client will handle 401
 		client = api.NewClient("")
 	}
 
@@ -142,5 +144,140 @@ func executeQuery(args []string) error {
 	}
 
 	printJSON(results)
+	return nil
+}
+
+// executeLatest handles the 'latest' subcommand
+func executeLatest(args []string) error {
+	latestCmd := flag.NewFlagSet("latest", flag.ExitOnError)
+	selector := latestCmd.String("selector", "time", "Selector for latest samples: 'time' (last 60m) or '100' (last 100 samples)")
+
+	latestCmd.Usage = func() {
+		printUsageHeader("latest", "Retrieves the latest malware samples added to MalwareBazaar.")
+		fmt.Println("\nFlags:")
+		fmt.Println("  -selector <value>\tSelector: 'time' (default, last 60m) or '100' (last 100 samples)")
+		fmt.Println("\nExamples:")
+		fmt.Println("  mbzr latest")
+		fmt.Println("  mbzr latest -selector 100")
+	}
+
+	if err := latestCmd.Parse(args); err != nil {
+		return err
+	}
+
+	if *selector != "time" && *selector != "100" {
+		printError("invalid selector: must be 'time' or '100'")
+		latestCmd.Usage()
+		fmt.Println()
+		return fmt.Errorf("invalid selector")
+	}
+
+	client, err := getAPIClient()
+	if err != nil {
+		printDetailedError(err, "Failed to create API client")
+		return err
+	}
+
+	ctx, cancel := getContext()
+	defer cancel()
+
+	results, err := client.QueryLatest(ctx, *selector)
+	if err != nil {
+		return err
+	}
+
+	if len(results) == 0 {
+		fmt.Println("No latest samples found.")
+		return nil
+	}
+
+	printJSON(results)
+
+	return nil
+}
+
+// executeRecentDetections handles the 'recent_detections' subcommand
+func executeRecentDetections(args []string) error {
+	recentCmd := flag.NewFlagSet("recent_detections", flag.ExitOnError)
+	hours := recentCmd.Int("hours", 24, "Retrieve recent detections from the last n hours (default: 24)")
+
+	recentCmd.Usage = func() {
+		printUsageHeader("recent_detections", "Retrieves malware samples detected in the last specified number of hours.")
+		fmt.Println("\nFlags:")
+		fmt.Println("  -hours <number>\tNumber of hours to look back (default: 24)")
+		fmt.Println("\nExamples:")
+		fmt.Println("  mbzr recent_detections -hours 24")
+	}
+
+	if err := recentCmd.Parse(args); err != nil {
+		return err
+	}
+
+	if *hours < 1 || *hours > 168 {
+		printError("hours must be between 1 and 168")
+		recentCmd.Usage()
+		fmt.Println()
+		return fmt.Errorf("invalid hours value")
+	}
+
+	client, err := getAPIClient()
+	if err != nil {
+		printDetailedError(err, "Failed to create API client")
+		return err
+	}
+
+	ctx, cancel := getContext()
+	defer cancel()
+
+	results, err := client.GetRecentDetections(ctx, *hours)
+	if err != nil {
+		return err
+	}
+
+	if len(results) == 0 {
+		fmt.Println("No recent detections found.")
+		return nil
+	}
+
+	printJSON(results)
+
+	return nil
+}
+
+// executeCSCB handles the 'cscb' subcommand
+func executeCSCB(args []string) error {
+	cscbCmd := flag.NewFlagSet("cscb", flag.ExitOnError)
+
+	cscbCmd.Usage = func() {
+		printUsageHeader("cscb", "Queries the Code Signing Certificate Blocklist (CSCB) from MalwareBazaar.")
+		fmt.Println("\nExample:")
+		fmt.Println("  mbzr cscb")
+	}
+
+	if err := cscbCmd.Parse(args); err != nil {
+		return err
+	}
+
+	client, err := getAPIClient()
+	if err != nil {
+		printDetailedError(err, "Failed to create API client")
+		return err
+	}
+
+	ctx, cancel := getContext()
+	defer cancel()
+
+	results, err := client.GetCSCB(ctx)
+	if err != nil {
+		return err
+	}
+
+	if len(results) == 0 {
+		fmt.Println("No CSCB entries found.")
+		return nil
+	}
+
+	printJSON(results)
+
 	return nil
 }
