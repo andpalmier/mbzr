@@ -51,17 +51,23 @@ changelog:
       - "^chore:"
       - "Merge pull request"
 
-brews:
+homebrew_casks:
   - name: mbzr
     repository:
       owner: andpalmier
       name: homebrew-tap
-    directory: Formula
     homepage: "https://github.com/andpalmier/mbzr"
-    description: "Forensic tool for analyzing git repository history"
-    license: "AGPL-3.0"
-    test: |
-      system "#{bin}/mbzr --version"
+    description: "CLI tool to search in MalwareBazaar database and submit samples"
+    url:
+      verified: github.com/andpalmier/mbzr
+    binaries:
+      - mbzr
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mbzr"]
+          end
 
 dockers:
   - image_templates:
@@ -70,41 +76,24 @@ dockers:
     use: buildx
     goos: linux
     goarch: amd64
-    extra_files:
-      - go.mod
-      - go.sum
-      - main.go
-      - internal
-      - cmd
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.description=Git repository forensic expander"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.source=https://github.com/andpalmier/mbzr"
-      - "--label=org.opencontainers.image.licenses=AGPL-3.0"
-
+    ids:
+      - mbzr
+    extra_files: []
   - image_templates:
       - "ghcr.io/andpalmier/mbzr:{{ .Version }}-arm64"
       - "ghcr.io/andpalmier/mbzr:latest-arm64"
     use: buildx
     goos: linux
     goarch: arm64
-    extra_files:
-      - go.mod
-      - go.sum
-      - main.go
-      - internal
-      - cmd
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/arm64"
-      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
-      - "--label=org.opencontainers.image.description=Git repository forensic expander"
-      - "--label=org.opencontainers.image.version={{ .Version }}"
-      - "--label=org.opencontainers.image.source=https://github.com/andpalmier/mbzr"
-      - "--label=org.opencontainers.image.licenses=AGPL-3.0"
+    ids:
+      - mbzr
+    extra_files: []
 
 docker_manifests:
   - name_template: "ghcr.io/andpalmier/mbzr:{{ .Version }}"

@@ -137,7 +137,7 @@ func (c *Client) MakeRequest(ctx context.Context, data map[string]string, files 
 	if err != nil {
 		return "", fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("API returned status %s", resp.Status)
@@ -172,7 +172,7 @@ func (c *Client) MakeRequestRaw(ctx context.Context, data map[string]string, fil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("API returned status %s", resp.Status)
 	}
 

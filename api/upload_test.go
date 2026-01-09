@@ -15,9 +15,9 @@ func TestClient_Upload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
-	tmpfile.WriteString("test content")
-	tmpfile.Close()
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
+	_, _ = tmpfile.WriteString("test content")
+	_ = tmpfile.Close()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -29,7 +29,7 @@ func TestClient_Upload(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{
+		_, _ = fmt.Fprintln(w, `{
 			"query_status": "ok",
 			"data": [
 				{

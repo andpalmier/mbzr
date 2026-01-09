@@ -15,7 +15,7 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, anonymous bool
 	if err != nil {
 		return "", fmt.Errorf("error opening file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	files := map[string]io.Reader{
 		"file": file,

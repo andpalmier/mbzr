@@ -11,7 +11,7 @@ import (
 func TestClient_QueryByHash(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{
+		_, _ = fmt.Fprintln(w, `{
 			"query_status": "ok",
 			"data": [
 				{
@@ -56,7 +56,7 @@ func TestClient_QueryByTag(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{
+		_, _ = fmt.Fprintln(w, `{
 			"query_status": "ok",
 			"data": [
 				{
@@ -81,7 +81,7 @@ func TestClient_QueryByTag(t *testing.T) {
 
 func TestClient_QueryLatest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		if r.Form.Get("query") != "get_recent" {
 			t.Errorf("Expected query=get_recent, got %s", r.Form.Get("query"))
 		}
@@ -90,7 +90,7 @@ func TestClient_QueryLatest(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{
+		_, _ = fmt.Fprintln(w, `{
 			"query_status": "ok",
 			"data": []
 		}`)

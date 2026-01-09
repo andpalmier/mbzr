@@ -38,10 +38,16 @@ func ValidateTag(tag string) error {
 	}
 	// Allow alphanumeric, dash, underscore, and space
 	for _, r := range tag {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '-' || r == '_' || r == ' ' || r == '.') {
+		if !isValidTagChar(r) {
 			return fmt.Errorf("tag contains invalid characters: only alphanumeric, dash, underscore, dot, and space allowed")
 		}
 	}
 	return nil
+}
+
+func isValidTagChar(r rune) bool {
+	return (r >= 'a' && r <= 'z') ||
+		(r >= 'A' && r <= 'Z') ||
+		(r >= '0' && r <= '9') ||
+		r == '-' || r == '_' || r == ' ' || r == '.'
 }
