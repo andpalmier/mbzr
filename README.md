@@ -20,6 +20,12 @@ A command-line tool for interacting with the [MalwareBazaar API](https://bazaar.
 
 ## Installation
 
+### Using Homebrew
+
+```bash
+brew install andpalmier/tap/mbzr
+```
+
 ### Using Go
 
 ```bash

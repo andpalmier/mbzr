@@ -58,6 +58,7 @@ homebrew_casks:
       name: homebrew-tap
     homepage: "https://github.com/andpalmier/mbzr"
     description: "CLI tool to search in MalwareBazaar database and submit samples"
+    directory: Casks
     url:
       verified: github.com/andpalmier/mbzr
     binaries:

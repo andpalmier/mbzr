@@ -156,7 +156,7 @@ func contains(s, substr string) bool {
 // SetVerbose sets the verbose flag (for testing)
 func SetVerbose(v bool) {
 	verbose = v
-	InitLogger(v)
+	// InitLogger(v)
 }
 
 // IsVerbose returns the verbose flag value
