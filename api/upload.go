@@ -38,8 +38,10 @@ func (c *Client) UploadFile(ctx context.Context, filePath string, anonymous bool
 	}
 
 	// Add context info if provided
-	for k, v := range contextInfo {
-		data[k] = v
+	if contextInfo != nil {
+		for k, v := range contextInfo {
+			data[k] = v
+		}
 	}
 
 	response, err := c.MakeRequest(ctx, data, files)

@@ -30,7 +30,7 @@ func executeDownload(args []string) error {
 	client, err := getAPIClient()
 	if err != nil {
 		printDetailedError(err, "Failed to create API client")
-		return fmt.Errorf("ABUSECH_API_KEY environment variable is required for downloading samples")
+		return err
 	}
 
 	ctx, cancel := getContext()
