@@ -70,7 +70,7 @@ homebrew_casks:
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mbzr"]
           end
 
-dockers:
+docker:
   - image_templates:
       - "ghcr.io/andpalmier/mbzr:{{ .Version }}-amd64"
       - "ghcr.io/andpalmier/mbzr:latest-amd64"
