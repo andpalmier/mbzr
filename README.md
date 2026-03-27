@@ -8,6 +8,7 @@ A command-line tool for interacting with the [MalwareBazaar API](https://bazaar.
 > - [yrfy](https://github.com/andpalmier/yrfy) - YARAify (YARA scanning)
 > - [mbzr](https://github.com/andpalmier/mbzr) - MalwareBazaar (malware samples)
 
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/mbzr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/andpalmier/mbzr)](https://goreportcard.com/report/github.com/andpalmier/mbzr)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
