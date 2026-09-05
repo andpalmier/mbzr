@@ -23,8 +23,10 @@ A command-line tool for interacting with the [MalwareBazaar API](https://bazaar.
 ### Using Homebrew
 
 ```bash
-brew install andpalmier/tap/mbzr
+brew install --cask andpalmier/tap/mbzr
 ```
+
+Homebrew casks are macOS only. On Linux, use `go install` or a pre-built binary.
 
 ### Using Go
 
