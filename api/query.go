@@ -30,8 +30,8 @@ func (c *Client) queryAPI(ctx context.Context, queryType, queryKey, queryValue s
 		return nil, err
 	}
 
-	if resp.QueryStatus != "ok" {
-		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	if err := newStatusError(resp.QueryStatus, queryType); err != nil {
+		return nil, err
 	}
 
 	return resp.Data, nil
@@ -39,11 +39,9 @@ func (c *Client) queryAPI(ctx context.Context, queryType, queryKey, queryValue s
 
 // QueryByHash retrieves malware samples by hash
 func (c *Client) QueryByHash(ctx context.Context, hash string, limit int) ([]MalwareSample, error) {
-	// Validate hash format (SHA256 or MD5)
-	if err := ValidateSHA256(hash); err != nil {
-		if err := ValidateMD5(hash); err != nil {
-			return nil, fmt.Errorf("invalid hash format: must be SHA256 (64 hex) or MD5 (32 hex)")
-		}
+	// get_info accepts SHA256, SHA1 or MD5
+	if err := ValidateHash(hash); err != nil {
+		return nil, err
 	}
 	return c.queryAPI(ctx, "get_info", "hash", hash, limit)
 }
@@ -138,8 +136,8 @@ func (c *Client) QueryLatest(ctx context.Context, selector string) ([]MalwareSam
 		return nil, err
 	}
 
-	if resp.QueryStatus != "ok" {
-		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	if err := newStatusError(resp.QueryStatus, "get_recent"); err != nil {
+		return nil, err
 	}
 
 	return resp.Data, nil
@@ -162,8 +160,8 @@ func (c *Client) GetRecentDetections(ctx context.Context, hours int) ([]MalwareS
 		return nil, err
 	}
 
-	if resp.QueryStatus != "ok" {
-		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	if err := newStatusError(resp.QueryStatus, "recent_detections"); err != nil {
+		return nil, err
 	}
 
 	return resp.Data, nil
@@ -185,8 +183,8 @@ func (c *Client) GetCSCB(ctx context.Context) ([]CSCBEntry, error) {
 		return nil, fmt.Errorf("error parsing CSCB response: %w", err)
 	}
 
-	if resp.QueryStatus != "ok" {
-		return nil, fmt.Errorf("API returned status: %s", resp.QueryStatus)
+	if err := newStatusError(resp.QueryStatus, "get_cscb"); err != nil {
+		return nil, err
 	}
 
 	return resp.Data, nil

@@ -4,62 +4,84 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"strings"
+	"path/filepath"
 )
 
-// UploadFile uploads a file to MalwareBazaar
-func (c *Client) UploadFile(ctx context.Context, filePath string, anonymous bool, tags []string, deliveryMethod string, contextInfo map[string]string) (string, error) {
+// UploadOptions carries the metadata submitted alongside a sample.
+// DeliveryMethod, References and Context are part of the documented API but
+// are not yet exposed as CLI flags.
+type UploadOptions struct {
+	Anonymous      bool
+	Tags           []string
+	DeliveryMethod string
+	References     map[string][]string
+	Context        map[string]any
+}
+
+// UploadResult is the parsed outcome of a successful submission
+type UploadResult struct {
+	QueryStatus string          `json:"query_status"`
+	Data        []MalwareSample `json:"data,omitempty"`
+}
+
+// uploadEnvelope is the json_data part of the multipart submission
+type uploadEnvelope struct {
+	Anonymous      int                 `json:"anonymous"`
+	Tags           []string            `json:"tags,omitempty"`
+	DeliveryMethod string              `json:"delivery_method,omitempty"`
+	References     map[string][]string `json:"references,omitempty"`
+	Context        map[string]any      `json:"context,omitempty"`
+}
+
+// UploadFile uploads a file to MalwareBazaar.
+// The API expects a multipart POST carrying the sample as "file" and its
+// metadata as a JSON object in "json_data".
+func (c *Client) UploadFile(ctx context.Context, filePath string, opts UploadOptions) (*UploadResult, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return "", fmt.Errorf("error opening file: %w", err)
+		return nil, fmt.Errorf("error opening file: %w", err)
 	}
 	defer func() { _ = file.Close() }()
 
-	files := map[string]io.Reader{
-		"file": file,
+	envelope := uploadEnvelope{
+		Tags:           opts.Tags,
+		DeliveryMethod: opts.DeliveryMethod,
+		References:     opts.References,
+		Context:        opts.Context,
+	}
+	if opts.Anonymous {
+		envelope.Anonymous = 1
 	}
 
-	// Prepare other form fields
+	jsonData, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, fmt.Errorf("encoding upload metadata: %w", err)
+	}
+
+	files := map[string]FormFile{
+		"file": {Name: filepath.Base(filePath), Reader: file},
+	}
 	data := map[string]string{
-		"anonymous": "0",
-	}
-	if anonymous {
-		data["anonymous"] = "1"
-	}
-
-	if len(tags) > 0 {
-		data["tags"] = strings.Join(tags, ",")
-	}
-
-	if deliveryMethod != "" {
-		data["delivery_method"] = deliveryMethod
-	}
-
-	// Add context info if provided
-	for k, v := range contextInfo {
-		data[k] = v
+		"json_data": string(jsonData),
 	}
 
 	response, err := c.MakeRequest(ctx, data, files)
 	if err != nil {
-		return "", fmt.Errorf("error uploading file: %w", err)
+		return nil, fmt.Errorf("error uploading file: %w", err)
 	}
 
-	// Parse the response to check status
 	resp, err := ParseAPIResponse([]byte(response))
 	if err != nil {
-		return "", err
+		return nil, fmt.Errorf("error parsing upload response: %w", err)
 	}
 
-	// If there's data, try to pretty print it
-	if len(resp.Data) > 0 {
-		dataJSON, err := json.MarshalIndent(resp.Data, "", "    ")
-		if err == nil {
-			return fmt.Sprintf("Query Status: %s\nData:\n%s", resp.QueryStatus, string(dataJSON)), nil
-		}
+	if resp.QueryStatus == "" {
+		return nil, fmt.Errorf("upload failed: response contained no query_status")
+	}
+	if err := newStatusError(resp.QueryStatus, "upload"); err != nil {
+		return nil, err
 	}
 
-	return fmt.Sprintf("Query Status: %s", resp.QueryStatus), nil
+	return &UploadResult{QueryStatus: resp.QueryStatus, Data: resp.Data}, nil
 }

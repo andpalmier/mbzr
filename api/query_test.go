@@ -105,3 +105,31 @@ func TestClient_QueryLatest(t *testing.T) {
 		t.Fatalf("QueryLatest() error = %v", err)
 	}
 }
+
+// TestClient_QueryByHashAcceptsSHA1 guards the documented behaviour of
+// get_info, which takes SHA256, SHA1 or MD5.
+func TestClient_QueryByHashAcceptsSHA1(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		if r.Form.Get("query") != "get_info" {
+			t.Errorf("Expected query=get_info, got %s", r.Form.Get("query"))
+		}
+		if r.Form.Get("hash") != "bab94357d255c22ec55e60dc55745d58b4d7ef12" {
+			t.Errorf("hash not forwarded: %s", r.Form.Get("hash"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintln(w, `{"query_status":"ok","data":[{"sha1_hash":"bab94357d255c22ec55e60dc55745d58b4d7ef12"}]}`)
+	}))
+	defer server.Close()
+
+	c := NewClient("test-key")
+	c.baseURL = server.URL + "/"
+
+	data, err := c.QueryByHash(context.Background(), "bab94357d255c22ec55e60dc55745d58b4d7ef12", 0)
+	if err != nil {
+		t.Fatalf("SHA1 lookup rejected: %v", err)
+	}
+	if len(data) != 1 {
+		t.Fatalf("Expected 1 result, got %d", len(data))
+	}
+}

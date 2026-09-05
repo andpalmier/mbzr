@@ -28,6 +28,13 @@ type Client struct {
 	lastReq    time.Time
 }
 
+// FormFile is a file part of a multipart request. Name is the filename sent
+// to the API; MalwareBazaar records it as the sample's file_name.
+type FormFile struct {
+	Name   string
+	Reader io.Reader
+}
+
 // Option configures the Client
 type Option func(*Client)
 
@@ -73,29 +80,37 @@ func (c *Client) wait() {
 	c.lastReq = time.Now()
 }
 
-// buildRequest creates an HTTP request with the given data and files
-func (c *Client) buildRequest(ctx context.Context, data map[string]string, files map[string]io.Reader) (*http.Request, error) {
+// buildRequest creates an HTTP request with the given data and files.
+// When files are present the request is multipart and data is sent as form
+// fields alongside them; otherwise data is url-encoded.
+func (c *Client) buildRequest(ctx context.Context, data map[string]string, files map[string]FormFile) (*http.Request, error) {
 	var body io.Reader
 	var contentType string
 
 	if files != nil {
 		buf := &bytes.Buffer{}
 		writer := multipart.NewWriter(buf)
-		for key, r := range files {
-			var fw io.Writer
-			var err error
-			if key == "file" {
-				fw, err = writer.CreateFormFile(key, "file")
-			} else {
-				fw, err = writer.CreateFormField(key)
+
+		for key, value := range data {
+			if err := writer.WriteField(key, value); err != nil {
+				return nil, fmt.Errorf("writing form field %q: %w", key, err)
 			}
+		}
+
+		for key, f := range files {
+			name := f.Name
+			if name == "" {
+				name = key
+			}
+			fw, err := writer.CreateFormFile(key, name)
 			if err != nil {
-				return nil, fmt.Errorf("creating form field %q: %w", key, err)
+				return nil, fmt.Errorf("creating form file %q: %w", key, err)
 			}
-			if _, err = io.Copy(fw, r); err != nil {
+			if _, err = io.Copy(fw, f.Reader); err != nil {
 				return nil, fmt.Errorf("copying data for %q: %w", key, err)
 			}
 		}
+
 		if err := writer.Close(); err != nil {
 			return nil, fmt.Errorf("closing multipart writer: %w", err)
 		}
@@ -125,7 +140,7 @@ func (c *Client) buildRequest(ctx context.Context, data map[string]string, files
 }
 
 // MakeRequest makes an HTTP request to the API and returns the response as a string
-func (c *Client) MakeRequest(ctx context.Context, data map[string]string, files map[string]io.Reader) (string, error) {
+func (c *Client) MakeRequest(ctx context.Context, data map[string]string, files map[string]FormFile) (string, error) {
 	c.wait()
 
 	req, err := c.buildRequest(ctx, data, files)
@@ -143,13 +158,13 @@ func (c *Client) MakeRequest(ctx context.Context, data map[string]string, files 
 		return "", fmt.Errorf("API returned status %s", resp.Status)
 	}
 
-	limitedReader := io.LimitReader(resp.Body, maxResponseSize)
+	limitedReader := io.LimitReader(resp.Body, maxResponseSize+1)
 	body, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return "", fmt.Errorf("reading response: %w", err)
 	}
 
-	if len(body) == maxResponseSize {
+	if len(body) > maxResponseSize {
 		return "", fmt.Errorf("response too large: exceeded %d bytes", maxResponseSize)
 	}
 
@@ -158,7 +173,7 @@ func (c *Client) MakeRequest(ctx context.Context, data map[string]string, files 
 
 // MakeRequestRaw makes an HTTP request and returns the raw response body
 // The caller is responsible for closing the response body
-func (c *Client) MakeRequestRaw(ctx context.Context, data map[string]string, files map[string]io.Reader) (io.ReadCloser, error) {
+func (c *Client) MakeRequestRaw(ctx context.Context, data map[string]string, files map[string]FormFile) (io.ReadCloser, error) {
 	c.wait()
 
 	req, err := c.buildRequest(ctx, data, files)

@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 // Execute runs the root command and handles subcommands
@@ -18,6 +19,20 @@ func Execute() error {
 			i--
 		case "-V", "--version":
 			return executeVersion([]string{})
+		case "-t", "--timeout":
+			if i+1 >= len(args) {
+				printError("missing value for " + args[i])
+				return fmt.Errorf("missing timeout value")
+			}
+			d, err := time.ParseDuration(args[i+1])
+			if err != nil || d <= 0 {
+				printError(fmt.Sprintf("invalid timeout %q: use a duration such as 45s or 2m", args[i+1]))
+				return fmt.Errorf("invalid timeout")
+			}
+			SetTimeout(d)
+			// Remove flag and its value from args
+			args = append(args[:i], args[i+2:]...)
+			i--
 		}
 	}
 

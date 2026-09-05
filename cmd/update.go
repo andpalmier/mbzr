@@ -3,6 +3,8 @@ package cmd
 import (
 	"flag"
 	"fmt"
+
+	"github.com/andpalmier/mbzr/api"
 )
 
 // AllowedKeys list of valid keys for updating an entry
@@ -56,10 +58,15 @@ func executeUpdate(args []string) error {
 	ctx, cancel := getContext()
 	defer cancel()
 
-	err = client.UpdateSample(ctx, *sha256, *key, *value)
+	status, err := client.UpdateSample(ctx, *sha256, *key, *value)
 	if err != nil {
 		printDetailedError(err, fmt.Sprintf("Failed to update sample %s", *sha256))
 		return err
+	}
+
+	if status == api.StatusExists {
+		printSuccess(fmt.Sprintf("No change: %s=%q is already set on sample %s", *key, *value, *sha256))
+		return nil
 	}
 
 	printSuccess(fmt.Sprintf("Successfully updated sample %s", *sha256))

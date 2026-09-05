@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -51,41 +52,19 @@ func TestSetVerbose(t *testing.T) {
 	}
 }
 
-func TestContains(t *testing.T) {
-	tests := []struct {
-		s      string
-		substr string
-		want   bool
-	}{
-		{"hello world", "world", true},
-		{"hello world", "hello", true},
-		{"hello world", "lo wo", true},
-		{"hello world", "xyz", false},
-		{"", "", true},
-		{"hello", "", true},
-		{"", "hello", false},
-	}
-
-	for _, tt := range tests {
-		got := contains(tt.s, tt.substr)
-		if got != tt.want {
-			t.Errorf("contains(%q, %q) = %v, want %v", tt.s, tt.substr, got, tt.want)
-		}
-	}
-}
-
 func TestGetContextCancellation(t *testing.T) {
 	ctx, cancel := getContext()
-	defer cancel()
 
-	// Wait for context to be done (should timeout after 30 seconds)
+	// Cancelling must propagate immediately rather than waiting out the
+	// deadline, so this asserts the behaviour without sleeping for 30s.
+	cancel()
+
 	select {
 	case <-ctx.Done():
-		// Context should eventually be done due to timeout
-		if ctx.Err() != context.DeadlineExceeded {
-			t.Errorf("Expected DeadlineExceeded error, got %v", ctx.Err())
+		if !errors.Is(ctx.Err(), context.Canceled) {
+			t.Errorf("Expected Canceled error, got %v", ctx.Err())
 		}
-	case <-time.After(31 * time.Second):
-		t.Error("Context did not timeout within expected time")
+	case <-time.After(time.Second):
+		t.Error("Context was not done after cancel()")
 	}
 }

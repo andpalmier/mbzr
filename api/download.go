@@ -8,11 +8,25 @@ import (
 	"os"
 )
 
-// DownloadSample downloads a sample by its hash
-func (c *Client) DownloadSample(ctx context.Context, sha256 string) error {
+// zipMagic is the local file header of a ZIP archive (PK\x03\x04).
+// Downloaded samples are always zipped and protected with the password
+// "infected".
+var zipMagic = []byte{'P', 'K', 3, 4}
+
+// ZipPassword is the password abuse.ch uses for every downloaded sample.
+const ZipPassword = "infected"
+
+// DownloadSample downloads a sample by its hash and writes it to outPath.
+// When outPath is empty the file is written to "<sha256>.zip" in the working
+// directory. It returns the path written.
+func (c *Client) DownloadSample(ctx context.Context, sha256, outPath string) (string, error) {
 	// Validate SHA256 format to prevent path traversal
 	if err := ValidateSHA256(sha256); err != nil {
-		return fmt.Errorf("invalid hash: %w", err)
+		return "", fmt.Errorf("invalid hash: %w", err)
+	}
+
+	if outPath == "" {
+		outPath = fmt.Sprintf("%s.zip", sha256)
 	}
 
 	data := map[string]string{
@@ -22,63 +36,66 @@ func (c *Client) DownloadSample(ctx context.Context, sha256 string) error {
 
 	body, err := c.MakeRequestRaw(ctx, data, nil)
 	if err != nil {
-		return fmt.Errorf("error downloading sample: %w", err)
+		return "", fmt.Errorf("error downloading sample: %w", err)
 	}
 	defer func() { _ = body.Close() }()
 
-	// Read first 4 bytes to check for ZIP header
-	header := make([]byte, 4)
-	n, err := body.Read(header)
-	if err != nil && err != io.EOF {
-		return fmt.Errorf("error reading response header: %w", err)
+	// Read the ZIP magic. io.ReadFull is required here: a plain Read may
+	// return fewer bytes than asked for even when more are available, which
+	// would make a valid archive look like an error response.
+	header := make([]byte, len(zipMagic))
+	n, err := io.ReadFull(body, header)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return "", fmt.Errorf("error reading response header: %w", err)
 	}
 
-	// Check if it's a ZIP file (PK\x03\x04)
-	if n >= 4 && header[0] == 'P' && header[1] == 'K' && header[2] == 3 && header[3] == 4 {
-		fileName := fmt.Sprintf("%s.zip", sha256)
-
-		// Check if file already exists
-		if _, err := os.Stat(fileName); err == nil {
-			return fmt.Errorf("file already exists: %s", fileName)
-		}
-
-		out, err := os.Create(fileName)
-		if err != nil {
-			return fmt.Errorf("error creating file: %w", err)
-		}
-		defer func() { _ = out.Close() }()
-
-		// Write the header we already read
-		if _, err := out.Write(header[:n]); err != nil {
-			return fmt.Errorf("error writing file header: %w", err)
-		}
-
-		// Copy the rest of the body
-		if _, err := io.Copy(out, body); err != nil {
-			return fmt.Errorf("error saving file: %w", err)
-		}
-
-		return nil
+	// Anything that is not a ZIP is an error response from the API.
+	if n < len(zipMagic) || string(header[:n]) != string(zipMagic) {
+		return "", downloadError(header[:n], body)
 	}
 
-	// If not a ZIP, read the rest to parse error (limit to 1MB)
+	// Check if file already exists
+	if _, err := os.Stat(outPath); err == nil {
+		return "", fmt.Errorf("file already exists: %s", outPath)
+	}
+
+	out, err := os.Create(outPath)
+	if err != nil {
+		return "", fmt.Errorf("error creating file: %w", err)
+	}
+	defer func() { _ = out.Close() }()
+
+	// Write the header we already read
+	if _, err := out.Write(header[:n]); err != nil {
+		return "", fmt.Errorf("error writing file header: %w", err)
+	}
+
+	// Copy the rest of the body
+	if _, err := io.Copy(out, body); err != nil {
+		return "", fmt.Errorf("error saving file: %w", err)
+	}
+
+	return outPath, nil
+}
+
+// downloadError turns a non-ZIP response body into a useful error
+func downloadError(read []byte, rest io.Reader) error {
 	const maxErrorSize = 1024 * 1024 // 1MB
-	limitedReader := io.LimitReader(body, maxErrorSize)
-	rest, err := io.ReadAll(limitedReader)
+	tail, err := io.ReadAll(io.LimitReader(rest, maxErrorSize))
 	if err != nil {
 		return fmt.Errorf("error reading error response: %w", err)
 	}
+	full := append(read, tail...)
 
-	fullResponse := append(header[:n], rest...)
-
-	// Try to parse JSON error response
-	var js map[string]interface{}
-	if err := json.Unmarshal(fullResponse, &js); err == nil {
-		if status, ok := js["query_status"].(string); ok {
-			return fmt.Errorf("download failed: %s", status)
+	var js struct {
+		QueryStatus string `json:"query_status"`
+	}
+	if err := json.Unmarshal(full, &js); err == nil && js.QueryStatus != "" {
+		if serr := newStatusError(js.QueryStatus, "get_file"); serr != nil {
+			return serr
 		}
+		return fmt.Errorf("download failed: %s", js.QueryStatus)
 	}
 
-	// Return the raw response as error
-	return fmt.Errorf("download failed: %s", string(fullResponse))
+	return fmt.Errorf("download failed: %s", string(full))
 }

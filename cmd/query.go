@@ -8,6 +8,9 @@ import (
 	"github.com/andpalmier/mbzr/api"
 )
 
+// maxQueryLimit is the maximum number of results the API will return
+const maxQueryLimit = 1000
+
 // executeQuery handles the 'query' subcommand
 func executeQuery(args []string) error {
 	queryCmd := flag.NewFlagSet("query", flag.ExitOnError)
@@ -25,7 +28,7 @@ func executeQuery(args []string) error {
 	issuerCN := queryCmd.String("issuer_cn", "", "Query by Issuer Common Name")
 	subjectCN := queryCmd.String("subject_cn", "", "Query by Subject Common Name")
 	serialNumber := queryCmd.String("serial_number", "", "Query by Serial Number")
-	limit := queryCmd.Int("limit", 100, "Limit the number of results")
+	limit := queryCmd.Int("limit", 100, "Limit the number of results (max 1000)")
 
 	if len(args) < 1 {
 		printError("expected query arguments")
@@ -65,6 +68,17 @@ func executeQuery(args []string) error {
 
 	if selectedQuery == "" {
 		return fmt.Errorf("please provide a query parameter (e.g., -hash, -tag)")
+	}
+
+	// The API caps results at 1000; asking for more is silently ignored
+	// server-side, so clamp it here and say so.
+	if *limit > maxQueryLimit {
+		printWarning(fmt.Sprintf("limit capped at %d (the API maximum)", maxQueryLimit))
+		*limit = maxQueryLimit
+	}
+	if *limit < 1 {
+		printError("limit must be at least 1")
+		return fmt.Errorf("invalid limit")
 	}
 
 	client, err := getAPIClient()
@@ -199,12 +213,12 @@ func executeLatest(args []string) error {
 // executeRecentDetections handles the 'recent_detections' subcommand
 func executeRecentDetections(args []string) error {
 	recentCmd := flag.NewFlagSet("recent_detections", flag.ExitOnError)
-	hours := recentCmd.Int("hours", 24, "Retrieve recent detections from the last n hours (default: 24)")
+	hours := recentCmd.Int("hours", 48, "Retrieve recent detections from the last n hours (default: 48, max: 168)")
 
 	recentCmd.Usage = func() {
 		printUsageHeader("recent_detections", "Retrieves malware samples detected in the last specified number of hours.")
 		fmt.Println("\nFlags:")
-		fmt.Println("  -hours <number>\tNumber of hours to look back (default: 24)")
+		fmt.Println("  -hours <number>\tNumber of hours to look back (default: 48, max: 168)")
 		fmt.Println("\nExamples:")
 		fmt.Println("  mbzr recent_detections -hours 24")
 	}
