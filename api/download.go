@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -45,7 +46,7 @@ func (c *Client) DownloadSample(ctx context.Context, sha256, outPath string) (st
 	// would make a valid archive look like an error response.
 	header := make([]byte, len(zipMagic))
 	n, err := io.ReadFull(body, header)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
 		return "", fmt.Errorf("error reading response header: %w", err)
 	}
 
