@@ -53,6 +53,8 @@ func Execute() error {
 		return executeUpload(args[1:])
 	case "download":
 		return executeDownload(args[1:])
+	case "export":
+		return executeExport(args[1:])
 	case "cscb":
 		return executeCSCB(args[1:])
 	case "query":

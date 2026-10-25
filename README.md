@@ -1,6 +1,6 @@
 # mbzr - MalwareBazaar CLI client
 
-A command-line client for the [MalwareBazaar API](https://bazaar.abuse.ch/api/). It queries samples, downloads them, submits new ones, and edits entries you own.
+A command-line client for the [MalwareBazaar API](https://bazaar.abuse.ch/api/). It queries samples, downloads them, submits new ones, edits entries you own, and downloads the bulk data exports.
 
 > Part of the abuse.ch CLI toolkit, a set of clients for [abuse.ch](https://abuse.ch) services:
 > - [urlhs](https://github.com/andpalmier/urlhs) for URLhaus, the malware URL database
@@ -61,7 +61,7 @@ export ABUSECH_API_KEY="your_api_key_here"
 mbzr query -tag Emotet -limit 10
 ```
 
-Every command reads the key from `ABUSECH_API_KEY`. When the API refuses a request, mbzr prints the reason it gave, so "that hash is unknown to MalwareBazaar" instead of a bare status code.
+Every command reads the key from `ABUSECH_API_KEY`. When the API refuses a request, mbzr prints the reason it gave, such as "that hash is unknown to MalwareBazaar".
 
 ## Usage
 
@@ -90,6 +90,7 @@ Raise the timeout for large result sets. A query with `-limit 1000` takes close 
 | `recent_detections` | List samples detected in the last n hours |
 | `latest` | List recent additions |
 | `cscb` | Dump the Code Signing Certificate Blocklist |
+| `export` | Download a bulk data export |
 | `version` | Print version information |
 
 ### Querying samples
@@ -202,6 +203,25 @@ mbzr cscb
 
 Each entry carries the serial number, thumbprint, subject and issuer, validity dates, and the reason it was blocklisted.
 
+### Bulk exports
+
+```bash
+# List the export files and what each one holds
+mbzr export -h
+
+# SHA256 hashes of the samples added in the last 48 hours
+mbzr export -file sha256_recent.txt
+
+# Every sample, which runs to a few hundred megabytes
+mbzr -t 15m export -file full.csv.zip -out /tmp/bazaar.csv.zip
+```
+
+MalwareBazaar publishes CSV and JSON dumps of recent and all samples, MD5, SHA1 and SHA256 hash lists, and statistics on the YARA rules that matched its samples. The recent files cover 48 hours and are rebuilt every five minutes. The full dumps are rebuilt once an hour, so do not fetch them more often than that.
+
+The timeout covers the whole download, so raise `-t` for the full dumps. Without `-out` the file keeps its export name, and mbzr will not overwrite a file that already exists.
+
+abuse.ch expects the API key inside the export URL. mbzr strips the URL from its error messages so the key does not end up in your logs.
+
 ### Running in a container
 
 ```bash
@@ -212,7 +232,7 @@ podman run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag
 container run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag Emotet
 ```
 
-Downloads need a mounted volume, otherwise the sample disappears with the container:
+Downloads and exports need a mounted volume, otherwise the file disappears with the container:
 
 ```bash
 docker run --rm -e ABUSECH_API_KEY="your_key" -v $(pwd):/data ghcr.io/andpalmier/mbzr download -sha256 <hash> -out /data/sample.zip

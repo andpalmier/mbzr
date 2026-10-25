@@ -70,11 +70,12 @@ type MalwareSample struct {
 }
 
 // Intelligence represents aggregate intelligence about a sample.
-// Downloads and Uploads are strings: the API returns them quoted (e.g. "166").
+// Downloads and Uploads are json.Number: get_info and get_recent quote them
+// (e.g. "166"), while get_siginfo, get_file_type and get_yarainfo return bare numbers.
 type Intelligence struct {
 	ClamAV    []string        `json:"clamav,omitempty"`
-	Downloads string          `json:"downloads,omitempty"`
-	Uploads   string          `json:"uploads,omitempty"`
+	Downloads json.Number     `json:"downloads,omitempty"`
+	Uploads   json.Number     `json:"uploads,omitempty"`
 	Mail      json.RawMessage `json:"mail,omitempty"`
 }
 
@@ -133,10 +134,20 @@ type Comment struct {
 	Comment       string `json:"comment"`
 }
 
-// ParseAPIResponse parses the raw JSON response into an APIResponse struct
+// ParseAPIResponse parses the raw JSON response into an APIResponse struct.
+// A failed query can carry a sentence in data instead of samples, e.g.
+// {"query_status":"error","data":"Query execution time exceeded threshold..."},
+// which is returned as a *StatusError rather than a decoding error.
 func ParseAPIResponse(data []byte) (*APIResponse, error) {
 	var resp APIResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
+		var failed struct {
+			QueryStatus string `json:"query_status"`
+			Data        string `json:"data"`
+		}
+		if json.Unmarshal(data, &failed) == nil && newStatusError(failed.QueryStatus, "") != nil {
+			return nil, &StatusError{Status: failed.QueryStatus, Detail: failed.Data}
+		}
 		return nil, err
 	}
 	return &resp, nil

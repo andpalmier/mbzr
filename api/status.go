@@ -4,13 +4,18 @@ import "fmt"
 
 // StatusError is returned when the API answers with a query_status that
 // indicates failure. It carries the raw status so callers can match on it,
-// and renders a plain-English explanation.
+// and renders a plain-English explanation. Detail holds the explanation the
+// API sent in the data field, when it sent one.
 type StatusError struct {
 	Status string
+	Detail string
 	Query  string
 }
 
 func (e *StatusError) Error() string {
+	if e.Detail != "" {
+		return e.Detail
+	}
 	if msg, ok := statusMessages[e.Status]; ok {
 		return msg
 	}

@@ -59,13 +59,16 @@ homebrew_casks:
     homepage: "https://github.com/andpalmier/mbzr"
     description: "CLI tool to search in MalwareBazaar database and submit samples"
     directory: Casks
-    url:
-      verified: github.com/andpalmier/mbzr
+    # Homebrew quarantines what a cask downloads, and these binaries are neither
+    # signed nor notarized, so macOS refuses to run them with "mbzr is damaged
+    # and cannot be opened". Clearing the quarantine attribute bypasses
+    # Gatekeeper: Apple may withdraw it, and signing plus notarization is the
+    # durable answer, but that needs an Apple Developer account.
     hooks:
       post:
-        install: |
-          if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/mbzr"]
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/mbzr"]
           end
 
 # One "docker buildx build" across both platforms, pushed as a single
