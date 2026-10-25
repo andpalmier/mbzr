@@ -58,7 +58,7 @@ Get an API key from the [abuse.ch Authentication Portal](https://auth.abuse.ch/)
 
 ```bash
 export ABUSECH_API_KEY="your_api_key_here"
-mbzr query -tag Emotet -limit 10
+mbzr query -tag RemcosRAT -limit 10
 ```
 
 Every command reads the key from `ABUSECH_API_KEY`. When the API refuses a request, mbzr prints the reason it gave, such as "that hash is unknown to MalwareBazaar".
@@ -101,21 +101,21 @@ mbzr query -hash ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c965
 mbzr query -hash bab94357d255c22ec55e60dc55745d58b4d7ef12
 
 # By tag or signature
-mbzr query -tag Emotet -limit 50
-mbzr query -signature "Trojan.Generic"
+mbzr query -tag RemcosRAT -limit 50
+mbzr query -signature AgentTesla
 
 # By file type
 mbzr query -file_type elf
 
 # By detection or rule name
-mbzr query -clamav "Win.Trojan.Agent"
+mbzr query -clamav Win.Malware.Salat-10058846-0
 mbzr query -yara win_remcos_g0
 
 # By fuzzy or structural hash
-mbzr query -imphash 1234567890abcdef1234567890abcdef
-mbzr query -tlsh T1A5B...
-mbzr query -telfhash 1E634BC4B643D9F2ED0602B52477EF338E76F5B...
-mbzr query -gimphash 3870859e16c5541b4a6d2b3ce6e8b...
+mbzr query -imphash cc59dc087ec0d841da99dc7c62a9db6c
+mbzr query -tlsh T10B978D213592C032D56E263418F4EBB1857EBD355F718A9F73A01FBE4E212E25920F6B
+mbzr query -telfhash t1a011e5fa3aea1a94e1fffe767645f09418741ab005e533f0a87204f2d6527c55ca0410
+mbzr query -gimphash 5991a11452c6bb4cc3acf54e389890017b066d327db0364ed33cef3883db7c01
 mbzr query -dhash f8dcbeffbffecee8
 
 # By code signing certificate
@@ -125,6 +125,8 @@ mbzr query -serial_number 05a6cf9108f6941e492c3d2a1dc4dc9631b2
 ```
 
 `-limit` defaults to 100. The API caps it at 1000, and mbzr clamps anything higher with a warning rather than sending a request the server will trim anyway.
+
+Very common tags and signatures, such as Emotet or Mirai, can hit a time limit on the MalwareBazaar side, even with a small `-limit`. mbzr then prints "Query execution time exceeded threshold", which is the API's own message.
 
 ### Downloading samples
 
@@ -225,11 +227,11 @@ abuse.ch expects the API key inside the export URL. mbzr strips the URL from its
 ### Running in a container
 
 ```bash
-docker run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag Emotet
+docker run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag RemcosRAT
 
-podman run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag Emotet
+podman run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag RemcosRAT
 
-container run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag Emotet
+container run --rm -e ABUSECH_API_KEY="your_key" ghcr.io/andpalmier/mbzr query -tag RemcosRAT
 ```
 
 Downloads and exports need a mounted volume, otherwise the file disappears with the container:

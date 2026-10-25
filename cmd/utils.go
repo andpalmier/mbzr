@@ -48,7 +48,7 @@ func printRootHelp() {
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  # Query samples by tag")
-	fmt.Println("  mbzr query -tag Emotet -limit 10")
+	fmt.Println("  mbzr query -tag RemcosRAT -limit 10")
 	fmt.Println()
 	fmt.Println(" # Download a sample")
 	fmt.Println(" mbzr download -sha256 ac25758feaf1ba3fe21e02e29681b2addc0246b507e4f6641a68d4baf73c9652")
