@@ -8,6 +8,13 @@ import (
 
 // queryAPI helper to make API requests and return results
 func (c *Client) queryAPI(ctx context.Context, queryType, queryKey, queryValue string, limit int) ([]MalwareSample, error) {
+	if limit < 0 {
+		return nil, fmt.Errorf("limit cannot be negative")
+	}
+	if limit > 1000 {
+		return nil, fmt.Errorf("limit too large: maximum 1000")
+	}
+
 	data := map[string]string{
 		"query": queryType,
 	}
@@ -145,6 +152,10 @@ func (c *Client) QueryLatest(ctx context.Context, selector string) ([]MalwareSam
 
 // GetRecentDetections retrieves recent detections from the API
 func (c *Client) GetRecentDetections(ctx context.Context, hours int) ([]MalwareSample, error) {
+	if hours < 1 || hours > 168 {
+		return nil, fmt.Errorf("hours must be between 1 and 168")
+	}
+
 	data := map[string]string{
 		"query": "recent_detections",
 		"hours": fmt.Sprintf("%d", hours),

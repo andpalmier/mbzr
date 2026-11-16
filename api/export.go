@@ -55,9 +55,20 @@ func (c *Client) DownloadExport(ctx context.Context, fileName, outPath string) (
 		outPath = fileName
 	}
 
-	if _, err := os.Stat(outPath); err == nil {
-		return "", fmt.Errorf("file already exists: %s", outPath)
+	out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return "", fmt.Errorf("file already exists: %s", outPath)
+		}
+		return "", fmt.Errorf("error creating file: %w", err)
 	}
+	success := false
+	defer func() {
+		if !success {
+			_ = out.Close()
+			_ = os.Remove(outPath)
+		}
+	}()
 
 	c.wait()
 
@@ -83,21 +94,14 @@ func (c *Client) DownloadExport(ctx context.Context, fileName, outPath string) (
 		return "", exportError(resp)
 	}
 
-	out, err := os.Create(outPath)
-	if err != nil {
-		return "", fmt.Errorf("error creating file: %w", err)
-	}
-
 	if _, err := io.Copy(out, resp.Body); err != nil {
-		_ = out.Close()
-		_ = os.Remove(outPath)
 		return "", fmt.Errorf("error saving file: %w", err)
 	}
 
 	if err := out.Close(); err != nil {
 		return "", fmt.Errorf("error saving file: %w", err)
 	}
-
+	success = true
 	return outPath, nil
 }
 

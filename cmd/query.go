@@ -40,30 +40,38 @@ func executeQuery(args []string) error {
 		return err
 	}
 
-	// Map flags to their values
-	queryParams := map[string]*string{
-		"hash":          hash,
-		"tag":           tag,
-		"signature":     signature,
-		"file_type":     filetype,
-		"clamav":        clamav,
-		"imphash":       imphash,
-		"tlsh":          tlsh,
-		"telfhash":      telfhash,
-		"dhash":         dhash,
-		"gimphash":      gimphash,
-		"yara":          yara,
-		"issuer_cn":     issuerCN,
-		"subject_cn":    subjectCN,
-		"serial_number": serialNumber,
+	// Keep the flags ordered so multiple matches are rejected deterministically.
+	queryParams := []struct {
+		name  string
+		value *string
+	}{
+		{"hash", hash},
+		{"tag", tag},
+		{"signature", signature},
+		{"file_type", filetype},
+		{"clamav", clamav},
+		{"imphash", imphash},
+		{"tlsh", tlsh},
+		{"telfhash", telfhash},
+		{"dhash", dhash},
+		{"gimphash", gimphash},
+		{"yara", yara},
+		{"issuer_cn", issuerCN},
+		{"subject_cn", subjectCN},
+		{"serial_number", serialNumber},
 	}
 
-	var selectedQuery string
-	for key, val := range queryParams {
-		if *val != "" {
-			selectedQuery = key
-			break
+	var selectedQuery, selectedValue string
+	for _, p := range queryParams {
+		if *p.value == "" {
+			continue
 		}
+		if selectedQuery != "" {
+			printError("specify only one query parameter")
+			return fmt.Errorf("multiple query parameters")
+		}
+		selectedQuery = p.name
+		selectedValue = *p.value
 	}
 
 	if selectedQuery == "" {
@@ -147,9 +155,9 @@ func executeQuery(args []string) error {
 	var results []api.MalwareSample
 	if selectedQuery == "hash" {
 		// Hash query usually returns one result, limit might not apply or is 1
-		results, err = handler(ctx, client, *queryParams[selectedQuery], 0)
+		results, err = handler(ctx, client, selectedValue, 0)
 	} else {
-		results, err = handler(ctx, client, *queryParams[selectedQuery], *limit)
+		results, err = handler(ctx, client, selectedValue, *limit)
 	}
 
 	if err != nil {

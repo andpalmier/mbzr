@@ -35,6 +35,21 @@ func (c *Client) DownloadSample(ctx context.Context, sha256, outPath string) (st
 		"sha256_hash": sha256,
 	}
 
+	out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return "", fmt.Errorf("file already exists: %s", outPath)
+		}
+		return "", fmt.Errorf("error creating file: %w", err)
+	}
+	success := false
+	defer func() {
+		if !success {
+			_ = out.Close()
+			_ = os.Remove(outPath)
+		}
+	}()
+
 	body, err := c.MakeRequestRaw(ctx, data, nil)
 	if err != nil {
 		return "", fmt.Errorf("error downloading sample: %w", err)
@@ -55,17 +70,6 @@ func (c *Client) DownloadSample(ctx context.Context, sha256, outPath string) (st
 		return "", downloadError(header[:n], body)
 	}
 
-	// Check if file already exists
-	if _, err := os.Stat(outPath); err == nil {
-		return "", fmt.Errorf("file already exists: %s", outPath)
-	}
-
-	out, err := os.Create(outPath)
-	if err != nil {
-		return "", fmt.Errorf("error creating file: %w", err)
-	}
-	defer func() { _ = out.Close() }()
-
 	// Write the header we already read
 	if _, err := out.Write(header[:n]); err != nil {
 		return "", fmt.Errorf("error writing file header: %w", err)
@@ -76,6 +80,10 @@ func (c *Client) DownloadSample(ctx context.Context, sha256, outPath string) (st
 		return "", fmt.Errorf("error saving file: %w", err)
 	}
 
+	if err := out.Close(); err != nil {
+		return "", fmt.Errorf("error saving file: %w", err)
+	}
+	success = true
 	return outPath, nil
 }
 

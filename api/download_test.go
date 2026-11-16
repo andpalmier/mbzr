@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -87,7 +88,9 @@ func TestDownloadSampleReportsAPIStatus(t *testing.T) {
 }
 
 func TestDownloadSampleRefusesToOverwrite(t *testing.T) {
+	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
 		_, _ = w.Write(zipBody())
 	}))
 	defer server.Close()
@@ -102,11 +105,33 @@ func TestDownloadSampleRefusesToOverwrite(t *testing.T) {
 	if _, err := c.DownloadSample(context.Background(), dlHash, dest); err == nil {
 		t.Error("expected an error when the destination already exists")
 	}
+	if got := requests.Load(); got != 0 {
+		t.Errorf("API was contacted %d times for an existing destination", got)
+	}
 }
 
 func TestDownloadSampleRejectsBadHash(t *testing.T) {
 	c := NewClient("test-key")
 	if _, err := c.DownloadSample(context.Background(), "../../etc/passwd", ""); err == nil {
 		t.Error("expected an error for a non-SHA256 hash")
+	}
+}
+
+func TestDownloadSampleRemovesPartialFile(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "100")
+		_, _ = w.Write([]byte("PK\x03\x04partial"))
+	}))
+	defer server.Close()
+
+	c := NewClient("test-key")
+	c.baseURL = server.URL + "/"
+
+	dest := filepath.Join(t.TempDir(), "partial.zip")
+	if _, err := c.DownloadSample(context.Background(), dlHash, dest); err == nil {
+		t.Fatal("expected an error for a truncated body")
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		t.Fatalf("partial file was not removed: %v", err)
 	}
 }

@@ -159,12 +159,11 @@ func printSuccess(message string) {
 
 // printJSON prints data as indented JSON
 func printJSON(data interface{}) {
-	b, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "    ")
+	if err := enc.Encode(data); err != nil {
 		fmt.Printf("%+v\n", data)
-		return
 	}
-	fmt.Println(string(b))
 }
 
 // SetTimeout sets the per-request timeout

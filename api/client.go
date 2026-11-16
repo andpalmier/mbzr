@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -9,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,6 +26,7 @@ type Client struct {
 	httpClient *http.Client
 	interval   time.Duration
 	lastReq    time.Time
+	mu         sync.Mutex // Protects lastReq for thread-safe rate limiting
 }
 
 // FormFile is a file part of a multipart request. Name is the filename sent
@@ -73,6 +74,8 @@ func NewClient(apiKey string, options ...Option) *Client {
 
 // wait handles simple rate limiting
 func (c *Client) wait() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	elapsed := time.Since(c.lastReq)
 	if elapsed < c.interval {
 		time.Sleep(c.interval - elapsed)
@@ -88,34 +91,49 @@ func (c *Client) buildRequest(ctx context.Context, data map[string]string, files
 	var contentType string
 
 	if files != nil {
-		buf := &bytes.Buffer{}
-		writer := multipart.NewWriter(buf)
-
-		for key, value := range data {
-			if err := writer.WriteField(key, value); err != nil {
-				return nil, fmt.Errorf("writing form field %q: %w", key, err)
-			}
+		pr, pw := io.Pipe()
+		writer := multipart.NewWriter(pw)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, pr)
+		if err != nil {
+			_ = pw.CloseWithError(err)
+			_ = pr.Close()
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		req.Header.Set("User-Agent", "mbzr-client/1.0")
+		if c.apiKey != "" {
+			req.Header.Set("Auth-Key", c.apiKey)
 		}
 
-		for key, f := range files {
-			name := f.Name
-			if name == "" {
-				name = key
+		go func() {
+			defer func() { _ = pw.Close() }()
+			for key, value := range data {
+				if err := writer.WriteField(key, value); err != nil {
+					_ = pw.CloseWithError(fmt.Errorf("writing form field %q: %w", key, err))
+					return
+				}
 			}
-			fw, err := writer.CreateFormFile(key, name)
-			if err != nil {
-				return nil, fmt.Errorf("creating form file %q: %w", key, err)
+			for key, f := range files {
+				name := f.Name
+				if name == "" {
+					name = key
+				}
+				fw, err := writer.CreateFormFile(key, name)
+				if err != nil {
+					_ = pw.CloseWithError(fmt.Errorf("creating form file %q: %w", key, err))
+					return
+				}
+				if _, err := io.Copy(fw, f.Reader); err != nil {
+					_ = pw.CloseWithError(fmt.Errorf("copying data for %q: %w", key, err))
+					return
+				}
 			}
-			if _, err = io.Copy(fw, f.Reader); err != nil {
-				return nil, fmt.Errorf("copying data for %q: %w", key, err)
+			if err := writer.Close(); err != nil {
+				_ = pw.CloseWithError(fmt.Errorf("closing multipart writer: %w", err))
 			}
-		}
+		}()
 
-		if err := writer.Close(); err != nil {
-			return nil, fmt.Errorf("closing multipart writer: %w", err)
-		}
-		body = buf
-		contentType = writer.FormDataContentType()
+		return req, nil
 	} else {
 		formData := url.Values{}
 		for key, value := range data {

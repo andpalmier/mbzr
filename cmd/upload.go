@@ -24,7 +24,7 @@ func executeUpload(args []string) error {
 	uploadCmd.Var(contextInfo, "context", "Context as key=value, repeatable (e.g. -context dropped_by_malware=Gozi)")
 
 	uploadCmd.Usage = func() {
-		printUsageHeader("upload", "Uploads a file or all files in a directory to MalwareBazaar.")
+		printUsageHeader("upload", "Uploads a file or all non-hidden files directly in a directory to MalwareBazaar.")
 		fmt.Println("\nFlags:")
 		fmt.Println("  -file <file_path>\t\tFile to upload")
 		fmt.Println("  -dir <directory_path>\tDirectory containing files to upload")
@@ -37,7 +37,7 @@ func executeUpload(args []string) error {
 		fmt.Println("  # Upload a single file with tags")
 		fmt.Println("  mbzr upload -file malware.exe -tags trojan,banker")
 		fmt.Println()
-		fmt.Println("  # Upload all files in a directory anonymously")
+		fmt.Println("  # Upload all non-hidden files in a directory anonymously")
 		fmt.Println("  mbzr upload -dir /path/to/samples -anonymous")
 		fmt.Println()
 		fmt.Println("  # Upload with provenance")
@@ -52,8 +52,10 @@ func executeUpload(args []string) error {
 
 	// Parse tags
 	var tagList []string
-	if *tags != "" {
-		tagList = strings.Split(*tags, ",")
+	for _, tag := range strings.Split(*tags, ",") {
+		if tag = strings.TrimSpace(tag); tag != "" {
+			tagList = append(tagList, tag)
+		}
 	}
 
 	if *deliveryMethod != "" && !isDeliveryMethod(*deliveryMethod) {
@@ -138,9 +140,8 @@ func executeUpload(args []string) error {
 		// Each file gets its own timeout, so a large directory does not run
 		// out of time partway through the walk.
 		ctx, cancel := getContext()
-		defer cancel()
-
 		result, err := client.UploadFile(ctx, path, opts)
+		cancel()
 		if err != nil {
 			failed++
 			printError(fmt.Sprintf("Failed to upload %s: %v", path, err))

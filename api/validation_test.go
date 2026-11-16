@@ -80,3 +80,18 @@ func TestValidateSHA1(t *testing.T) {
 		t.Error("short hash accepted as SHA1")
 	}
 }
+
+func TestValidateMD5(t *testing.T) {
+	if err := ValidateMD5("d41d8cd98f00b204e9800998ecf8427e"); err != nil {
+		t.Errorf("valid MD5 rejected: %v", err)
+	}
+	if err := ValidateMD5("short"); err == nil {
+		t.Error("short MD5 accepted")
+	}
+}
+
+func TestValidateTagRejectsInvalidCharacters(t *testing.T) {
+	if err := ValidateTag("bad/tag"); err == nil {
+		t.Error("tag with slash accepted")
+	}
+}
